@@ -36,7 +36,7 @@ func draw(_ text: String, size: CGFloat, weight: NSFont.Weight, alpha: CGFloat, 
 }
 
 draw("HA Desktop\nControl", size: 88, weight: .bold, alpha: 1, in: NSRect(x: 590, y: 330, width: 640, height: 200))
-draw("Pause video and minimize windows when a Home Assistant door or window contact opens.",
+draw("Pause video and minimize windows on your Mac when any Home Assistant sensor triggers.",
      size: 33, weight: .regular, alpha: 0.88, in: NSRect(x: 592, y: 160, width: 620, height: 130))
 draw("macOS  ·  MQTT  ·  Home Assistant", size: 28, weight: .semibold, alpha: 0.7,
      in: NSRect(x: 592, y: 100, width: 640, height: 50))

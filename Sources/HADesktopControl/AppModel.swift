@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     private var poller: Task<Void, Never>?
     private var permissionWatcher: Task<Void, Never>?
     private var autosave: AnyCancellable?
+    private var appearanceWatcher: AnyCancellable?
 
     init() {
         let loaded = ConfigStore().load()
@@ -51,9 +52,33 @@ final class AppModel: ObservableObject {
             .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
             .sink { [weak self] _ in self?.persist() }
 
+        // Appearance applies immediately, not after the autosave debounce.
+        appearanceWatcher = $config.map(\.appearance).removeDuplicates()
+            .sink { Self.apply(appearance: $0) }
+
         Task { await connect() }
         startPoller()
         startPermissionWatcher()
+    }
+
+    static func apply(appearance: AppearanceMode) {
+        switch appearance {
+        case .system: NSApp?.appearance = nil
+        case .light: NSApp?.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp?.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    /// Fixed sample state for README screenshots (`--snapshots`); does no I/O and never connects.
+    init(demo config: AppConfig, snapshot: RuleEngine.Snapshot, nowPlaying: String) {
+        self.config = config
+        self.snapshot = snapshot
+        self.nowPlaying = nowPlaying
+        launchAtLogin = false
+        media = BrowserMediaController(browsers: { [] })
+        engine = RuleEngine(config: config, media: media, windows: windows)
+        mqttConnected = true
+        accessibilityTrusted = true
     }
 
     private func persist() {

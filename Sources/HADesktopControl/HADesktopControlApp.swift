@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-@main
 struct HADesktopControlApp: App {
     @StateObject private var model = AppModel()
 
@@ -36,9 +35,9 @@ struct MenuView: View {
 
     var body: some View {
         Text(model.snapshot.status == .pausedByContact
-             ? "Pausiert (Kontakt offen)" : "Bereit")
+             ? "Pausiert (Auslöser aktiv)" : "Bereit")
         if !model.snapshot.openSources.isEmpty {
-            Text("Offen: " + model.snapshot.openSources.joined(separator: ", "))
+            Text("Aktiv: " + model.snapshot.openSources.joined(separator: ", "))
         }
         Text(model.mqttConnected ? "MQTT: verbunden" : "MQTT: nicht verbunden")
         if !model.nowPlaying.isEmpty { Text("Läuft: \(model.nowPlaying)") }

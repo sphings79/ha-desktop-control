@@ -21,6 +21,11 @@ public enum BrowserKind: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Light/dark appearance of the app's windows and menu.
+public enum AppearanceMode: String, Codable, CaseIterable, Sendable {
+    case system, light, dark
+}
+
 public enum SourceAction: String, Codable, Sendable {
     case pauseMedia = "pause_media"
     /// Minimize the browser windows in which media was paused (needs `pauseMedia` first).
@@ -88,6 +93,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var sources: [String: SourceRule]
     public var browsers: [BrowserKind]
     public var apps: [AppRule]
+    public var appearance: AppearanceMode
 
     /// Actions for contact sources that have no explicit rule.
     public static let fallbackActions: [SourceAction] = [.pauseMedia]
@@ -98,7 +104,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         resumeDelaySeconds: Double = 10,
         sources: [String: SourceRule] = [:],
         browsers: [BrowserKind] = [.brave, .vivaldi, .chrome],
-        apps: [AppRule] = []
+        apps: [AppRule] = [],
+        appearance: AppearanceMode = .system
     ) {
         self.broker = broker
         self.deviceId = deviceId
@@ -106,6 +113,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.sources = sources
         self.browsers = browsers
         self.apps = apps
+        self.appearance = appearance
     }
 
     public init(from decoder: Decoder) throws {
@@ -117,6 +125,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         sources = try c.decodeIfPresent([String: SourceRule].self, forKey: .sources) ?? d.sources
         browsers = try c.decodeIfPresent([BrowserKind].self, forKey: .browsers) ?? d.browsers
         apps = try c.decodeIfPresent([AppRule].self, forKey: .apps) ?? d.apps
+        appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? d.appearance
     }
 
     public func actions(forSource source: String) -> [SourceAction] {

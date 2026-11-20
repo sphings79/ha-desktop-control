@@ -23,6 +23,12 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(config.deviceId, "mini")
         XCTAssertEqual(config.resumeDelaySeconds, 10)
         XCTAssertEqual(config.broker.port, 1883)
+        XCTAssertEqual(config.appearance, .system)
+    }
+
+    func testAppearanceRoundTrip() throws {
+        let data = try JSONEncoder().encode(AppConfig(appearance: .dark))
+        XCTAssertEqual(try JSONDecoder().decode(AppConfig.self, from: data).appearance, .dark)
     }
 
     func testStoreRoundTrip() throws {

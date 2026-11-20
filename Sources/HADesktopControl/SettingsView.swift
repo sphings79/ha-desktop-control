@@ -13,7 +13,7 @@ struct SettingsView: View {
         var title: String {
             switch self {
             case .overview: return "Übersicht"
-            case .contacts: return "Kontakte"
+            case .contacts: return "Auslöser"
             case .apps: return "Programme"
             case .mqtt: return "MQTT"
             case .general: return "Allgemein"
@@ -30,7 +30,12 @@ struct SettingsView: View {
         }
     }
 
-    @State private var page: Page? = .overview
+    @State private var page: Page?
+
+    init(model: AppModel, page: Page = .overview) {
+        self.model = model
+        _page = State(initialValue: page)
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -96,7 +101,8 @@ private struct Hint: View {
     var text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        Text(LocalizedStringKey(text)).font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -119,11 +125,11 @@ private struct OverviewPage: View {
         !enabled ? "slash.circle.fill" : (paused ? "pause.circle.fill" : "checkmark.circle.fill")
     }
     private var heroColor: Color { !enabled ? .gray : (paused ? .orange : .green) }
-    private var heroTitle: String { !enabled ? "Deaktiviert" : (paused ? "Pausiert – Kontakt offen" : "Bereit") }
+    private var heroTitle: String { !enabled ? "Deaktiviert" : (paused ? "Pausiert – Auslöser aktiv" : "Bereit") }
     private var heroSubtitle: String {
         model.snapshot.openSources.isEmpty
-            ? "Alle Kontakte geschlossen"
-            : "Offen: " + model.snapshot.openSources.joined(separator: ", ")
+            ? "Alle Auslöser inaktiv"
+            : "Aktiv: " + model.snapshot.openSources.joined(separator: ", ")
     }
 
     var body: some View {
@@ -217,7 +223,7 @@ private struct ContactsPage: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Hint("Jede Quelle ist ein Kontakt. Home Assistant sendet `open` oder `closed` an `ha-desktop-control/\(Topics.slug(model.config.deviceId))/contact/<Name>`. Quellen ohne Regel pausieren nur Medien.")
+            Hint("Jede Quelle ist ein Auslöser, also ein beliebiger Sensor oder eine andere Entität aus Home Assistant. HA sendet `open` (oder `on`) beim Auslösen und `closed` (oder `off`) beim Beenden an `ha-desktop-control/\(Topics.slug(model.config.deviceId))/contact/<Name>`. Quellen ohne Regel pausieren nur Medien.")
 
             ForEach(model.config.sources.keys.sorted(), id: \.self) { name in
                 Card {
@@ -240,9 +246,9 @@ private struct ContactsPage: View {
                 }
             }
 
-            Card(title: "Neue Quelle", symbol: "plus.circle") {
+            Card(title: "Neuer Auslöser", symbol: "plus.circle") {
                 HStack {
-                    TextField("Name, z. B. balkontuer", text: $newSource)
+                    TextField("Name, z. B. buero_tuer", text: $newSource)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(add)
                     Button("Hinzufügen", action: add)
@@ -252,9 +258,9 @@ private struct ContactsPage: View {
 
             Card(title: "Zurückholen", symbol: "timer") {
                 Stepper(value: $model.config.resumeDelaySeconds, in: 0...300, step: 5) {
-                    Text("Erst \(Int(model.config.resumeDelaySeconds)) Sekunden nach dem Schließen des letzten Kontakts")
+                    Text("Erst \(Int(model.config.resumeDelaySeconds)) Sekunden nachdem der letzte Auslöser inaktiv wurde")
                 }
-                Hint("Öffnet in dieser Zeit ein Kontakt erneut, bleibt alles pausiert.")
+                Hint("Wird in dieser Zeit ein Auslöser erneut aktiv, bleibt alles pausiert.")
             }
         }
     }
@@ -279,12 +285,12 @@ private struct ContactsPage: View {
 
     private func summary(for source: String) -> String {
         let actions = model.config.sources[source]?.actions ?? []
-        if actions.isEmpty { return "Keine Aktion – dieser Kontakt hat keine Wirkung." }
+        if actions.isEmpty { return "Keine Aktion – dieser Auslöser hat keine Wirkung." }
         var parts: [String] = []
         if actions.contains(.pauseMedia) { parts.append("pausiert laufende Videos") }
         if actions.contains(.minimizePausedWindows) { parts.append("minimiert deren Browserfenster") }
         if actions.contains(.windows) { parts.append("behandelt die Programme aus „Programme“") }
-        return "Beim Öffnen: " + parts.joined(separator: ", ") + "."
+        return "Beim Auslösen: " + parts.joined(separator: ", ") + "."
     }
 
     private func add() {
@@ -303,7 +309,7 @@ private struct AppsPage: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Hint("Diese Programme werden bei Kontakten mit der Option „Programme“ behandelt. Zurückgeholt wird nur, was die App selbst getan hat.")
+            Hint("Diese Programme werden bei Auslösern mit der Option „Programme“ behandelt. Zurückgeholt wird nur, was die App selbst getan hat.")
 
             if model.config.apps.isEmpty {
                 Card { Hint("Noch keine Programme. Füge unten eines hinzu.") }
@@ -460,6 +466,18 @@ private struct GeneralPage: View {
                     }
                 }
                 Hint("Chromium-Browser mit AppleScript. Safari und Opera GX werden nicht unterstützt.")
+            }
+
+            Card(title: "Darstellung", symbol: "circle.lefthalf.filled") {
+                Picker("Darstellung", selection: $model.config.appearance) {
+                    Text("System").tag(AppearanceMode.system)
+                    Text("Hell").tag(AppearanceMode.light)
+                    Text("Dunkel").tag(AppearanceMode.dark)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 320)
+                Hint("„System“ folgt der Einstellung von macOS.")
             }
 
             Card(title: "Start", symbol: "power") {
