@@ -66,23 +66,33 @@ final class SleepGate: @unchecked Sendable {
     }
 }
 
-final class FakeTransport: MQTTTransport {
+/// The bridge publishes from background tasks while the test reads on the main thread,
+/// so every access goes through a lock (an unprotected array crashed the CI runner).
+final class FakeTransport: MQTTTransport, @unchecked Sendable {
     var onMessage: ((MQTTMessage) -> Void)?
     var onConnectionChange: ((Bool) -> Void)?
 
-    var published: [MQTTMessage] = []
-    var subscribed: [String] = []
-    var connectedClientId: String?
-    var will: MQTTMessage?
+    private let lock = NSLock()
+    private var _published: [MQTTMessage] = []
+    private var _subscribed: [String] = []
+    private var _connectedClientId: String?
+    private var _will: MQTTMessage?
+
+    var published: [MQTTMessage] { lock.withLock { _published } }
+    var subscribed: [String] { lock.withLock { _subscribed } }
+    var connectedClientId: String? { lock.withLock { _connectedClientId } }
+    var will: MQTTMessage? { lock.withLock { _will } }
 
     func connect(broker: BrokerConfig, password: String?, clientId: String, will: MQTTMessage) async throws {
-        connectedClientId = clientId
-        self.will = will
+        lock.withLock {
+            _connectedClientId = clientId
+            _will = will
+        }
         onConnectionChange?(true)
     }
 
-    func subscribe(_ topics: [String]) async throws { subscribed += topics }
-    func publish(_ message: MQTTMessage) async throws { published.append(message) }
+    func subscribe(_ topics: [String]) async throws { lock.withLock { _subscribed += topics } }
+    func publish(_ message: MQTTMessage) async throws { lock.withLock { _published.append(message) } }
     func disconnect() async { onConnectionChange?(false) }
 
     func lastPayload(_ topic: String) -> String? {
