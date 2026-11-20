@@ -13,6 +13,7 @@ public final class MQTTBridge {
     private var consumer: Task<Void, Never>?
     private var connected = false
     private var nowPlaying = "none"
+    private var previousOnChange: ((RuleEngine.Snapshot) -> Void)?
 
     public var onConnectionChange: ((Bool) -> Void)?
 
@@ -38,7 +39,11 @@ public final class MQTTBridge {
             Task { @MainActor in await self?.connectionChanged(isUp) }
         }
 
-        engine.onChange = { [weak self] _ in
+        // Chain to an existing handler (the UI's) instead of replacing it.
+        let previous = engine.onChange
+        previousOnChange = previous
+        engine.onChange = { [weak self] snapshot in
+            previous?(snapshot)
             Task { @MainActor in await self?.publishState() }
         }
 
@@ -53,6 +58,8 @@ public final class MQTTBridge {
             try? await transport.publish(MQTTMessage(topic: topics.availability, payload: "offline", retain: true))
         }
         await transport.disconnect()
+        engine.onChange = previousOnChange
+        previousOnChange = nil
         inbox?.finish()
         consumer?.cancel()
         inbox = nil

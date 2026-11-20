@@ -122,6 +122,20 @@ final class BridgeTests: XCTestCase {
         await bridge.stop()
     }
 
+    func testBridgeKeepsExistingEngineHandler() async throws {
+        let (bridge, _, engine, _) = makeBridge()
+        var seen: [RuleEngine.Status] = []
+        engine.onChange = { seen.append($0.status) }
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        await engine.setContact(source: "a", open: true)
+        XCTAssertEqual(seen, [.pausedByContact], "UI handler must still be called")
+        await bridge.stop()
+        await engine.setContact(source: "a", open: false)
+        await engine.manualRestore()
+        XCTAssertEqual(seen.first, .pausedByContact)
+        XCTAssertNotNil(engine.onChange, "handler restored after stop")
+    }
+
     func testNowPlayingIsPublishedOnlyOnChange() async throws {
         let (bridge, transport, _, _) = makeBridge()
         try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)

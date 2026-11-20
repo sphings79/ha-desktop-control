@@ -7,6 +7,10 @@ struct HADesktopControlApp: App {
 
     init() {
         // Hidden check used while setting up permissions: pause, wait, resume, exit.
+        if CommandLine.arguments.contains("--selftest-ax") {
+            print("AXIsProcessTrusted: \(AXWindowController.isTrusted)")
+            exit(0)
+        }
         if CommandLine.arguments.contains("--selftest-media") {
             SelfTest.runMediaAndExit()
         }
