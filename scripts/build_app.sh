@@ -4,7 +4,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release
+# Strip the local checkout path from debug strings so the binary does not leak it.
+root=$(pwd -P)
+flags=(-Xcc "-ffile-prefix-map=$root=." -Xswiftc -file-prefix-map -Xswiftc "$root=.")
+swift build -c release "${flags[@]}"
 bin_dir=$(swift build -c release --show-bin-path)
 
 app="build/HADesktopControl.app"
