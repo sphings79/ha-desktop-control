@@ -11,6 +11,7 @@ A native macOS menu bar app that listens to Home Assistant over MQTT.
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple)](#requirements)
 [![Swift 6](https://img.shields.io/badge/Swift-6-orange?logo=swift)](Package.swift)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-MQTT%20Discovery-41BDF5?logo=homeassistant&logoColor=white)](#home-assistant-setup)
+[![Latest release](https://img.shields.io/github/v/release/sphings79/ha-desktop-control)](https://github.com/sphings79/ha-desktop-control/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-sphings-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sphings)
 
@@ -80,7 +81,17 @@ Tested with YouTube, Netflix, Disney+ and Prime Video in Brave, including full s
 
 ## Install
 
-There are no prebuilt releases yet; build from source:
+### Option 1: download the release
+
+1. Download `HADesktopControl-<version>-macos-arm64.zip` from the [latest release](https://github.com/sphings79/ha-desktop-control/releases/latest), unzip it and move **HADesktopControl.app** to `/Applications`.
+2. The app is **not notarized** (ad-hoc signed). On first launch, right-click it and choose **Open**, or run:
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/HADesktopControl.app
+   ```
+
+Requires Apple silicon (arm64) and macOS 14+.
+
+### Option 2: build from source
 
 ```sh
 git clone https://github.com/sphings79/ha-desktop-control.git

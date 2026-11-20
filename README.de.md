@@ -11,6 +11,7 @@ Eine native macOS-Menüleisten-App, die Home Assistant über MQTT zuhört.
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple)](#voraussetzungen)
 [![Swift 6](https://img.shields.io/badge/Swift-6-orange?logo=swift)](Package.swift)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-MQTT%20Discovery-41BDF5?logo=homeassistant&logoColor=white)](#einrichtung-in-home-assistant)
+[![Neuestes Release](https://img.shields.io/github/v/release/sphings79/ha-desktop-control?label=Release)](https://github.com/sphings79/ha-desktop-control/releases/latest)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-green)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-sphings-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sphings)
 
@@ -80,7 +81,17 @@ Getestet mit YouTube, Netflix, Disney+ und Prime Video in Brave, auch im Vollbil
 
 ## Installation
 
-Es gibt noch keine fertigen Releases. Bau die App aus dem Quelltext:
+### Variante 1: Release herunterladen
+
+1. Lade `HADesktopControl-<version>-macos-arm64.zip` vom [neuesten Release](https://github.com/sphings79/ha-desktop-control/releases/latest) herunter, entpacke es und verschiebe **HADesktopControl.app** nach `/Programme`.
+2. Die App ist **nicht notarisiert** (Ad-hoc-Signatur). Beim ersten Start per Rechtsklick auf **Öffnen** gehen oder ausführen:
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/HADesktopControl.app
+   ```
+
+Voraussetzung: Apple Silicon (arm64) und macOS 14+.
+
+### Variante 2: aus dem Quelltext bauen
 
 ```sh
 git clone https://github.com/sphings79/ha-desktop-control.git
