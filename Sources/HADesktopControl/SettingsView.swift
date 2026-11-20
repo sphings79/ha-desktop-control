@@ -45,13 +45,14 @@ struct SettingsView: View {
 
     private var sourcesTab: some View {
         VStack(alignment: .leading) {
-            Text("Quelle = Name im Topic …/contact/<Name>. Nicht aufgeführte Quellen pausieren nur Medien.")
+            Text("Quelle = Name im Topic …/contact/<Name>. Nicht aufgeführte Quellen pausieren nur Medien. „Video-Fenster“ minimiert die Browserfenster mit pausiertem Video.")
                 .font(.caption).foregroundStyle(.secondary)
             List {
                 ForEach(model.config.sources.keys.sorted(), id: \.self) { name in
                     HStack {
                         Text(name).frame(minWidth: 120, alignment: .leading)
                         Toggle("Medien", isOn: actionBinding(name, .pauseMedia))
+                        Toggle("Video-Fenster", isOn: actionBinding(name, .minimizePausedWindows))
                         Toggle("Programme", isOn: actionBinding(name, .windows))
                         Spacer()
                         Button(role: .destructive) { model.config.sources[name] = nil } label: {

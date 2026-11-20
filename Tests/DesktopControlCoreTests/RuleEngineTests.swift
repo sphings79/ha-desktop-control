@@ -117,6 +117,33 @@ final class RuleEngineTests: XCTestCase {
         XCTAssertTrue(windows.applied.isEmpty)
     }
 
+    func testMinimizePausedWindowsRunsAfterPauseAndIsUndone() async {
+        var config = AppConfig(resumeDelaySeconds: 0)
+        // Order in the config must not matter: pausing always happens first.
+        config.sources["door"] = SourceRule(actions: [.minimizePausedWindows, .pauseMedia])
+        let (engine, media, _, _) = makeEngine(config: config)
+
+        await engine.setContact(source: "door", open: true)
+        XCTAssertEqual(media.pauseCalls, 1)
+        XCTAssertEqual(media.minimizeCalls, [media.playing], "minimizes exactly the windows with paused media")
+
+        await engine.setContact(source: "door", open: false)
+        XCTAssertEqual(media.restoredWindows.count, 1)
+        XCTAssertEqual(media.restoredWindows.first?.first?.windowId, 1)
+        XCTAssertEqual(media.resumed.count, 1)
+        XCTAssertEqual(engine.status, .idle)
+    }
+
+    func testMinimizeIsNotRepeatedForSecondSource() async {
+        var config = AppConfig(resumeDelaySeconds: 0)
+        config.sources["a"] = SourceRule(actions: [.pauseMedia, .minimizePausedWindows])
+        config.sources["b"] = SourceRule(actions: [.pauseMedia, .minimizePausedWindows])
+        let (engine, media, _, _) = makeEngine(config: config)
+        await engine.setContact(source: "a", open: true)
+        await engine.setContact(source: "b", open: true)
+        XCTAssertEqual(media.minimizeCalls.count, 1)
+    }
+
     func testManualPauseAndRestore() async {
         let (engine, media, _, _) = makeEngine()
         await engine.manualPause()

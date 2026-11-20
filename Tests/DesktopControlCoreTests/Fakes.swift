@@ -14,6 +14,18 @@ final class FakeMedia: MediaControlling {
     func resume(_ items: [PausedMedia]) async {
         resumed.append(items)
     }
+
+    var minimizeCalls: [[PausedMedia]] = []
+    var restoredWindows: [[PausedMedia]] = []
+
+    func minimizeWindows(of items: [PausedMedia]) async -> [PausedMedia] {
+        minimizeCalls.append(items)
+        return items.map { PausedMedia(browser: $0.browser, windowId: $0.windowId, tabId: 0) }
+    }
+
+    func restoreWindows(_ items: [PausedMedia]) async {
+        restoredWindows.append(items)
+    }
 }
 
 final class FakeWindows: WindowControlling {

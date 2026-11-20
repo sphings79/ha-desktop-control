@@ -30,6 +30,11 @@ public protocol MediaControlling: AnyObject {
     func pausePlaying() async -> [PausedMedia]
     /// Resumes media in the given tabs, but only elements this app paused.
     func resume(_ items: [PausedMedia]) async
+    /// Minimizes the browser windows that contain the given tabs (leaving full screen first).
+    /// Returns the windows that were minimized, as items with `tabId` 0.
+    func minimizeWindows(of items: [PausedMedia]) async -> [PausedMedia]
+    /// Un-minimizes windows returned by `minimizeWindows`.
+    func restoreWindows(_ items: [PausedMedia]) async
 }
 
 public protocol WindowControlling: AnyObject {

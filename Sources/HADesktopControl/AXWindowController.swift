@@ -49,8 +49,8 @@ final class AXWindowController: WindowControlling {
                   let app = NSRunningApplication.runningApplications(withBundleIdentifier: entry.rule.bundleId).first
             else { return }
             var remaining = entry.minimizedWindowTitles
-            for window in windows(of: app) where bool(window, kAXMinimizedAttribute) == true {
-                let title = string(window, kAXTitleAttribute)
+            for window in Self.windows(of: app) where Self.bool(window, kAXMinimizedAttribute) == true {
+                let title = Self.string(window, kAXTitleAttribute)
                 if let index = remaining.firstIndex(of: title) {
                     remaining.remove(at: index)
                     AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
@@ -61,7 +61,7 @@ final class AXWindowController: WindowControlling {
 
     // MARK: - Accessibility helpers
 
-    private func windows(of app: NSRunningApplication) -> [AXUIElement] {
+    static func windows(of app: NSRunningApplication) -> [AXUIElement] {
         let element = AXUIElementCreateApplication(app.processIdentifier)
         AXUIElementSetMessagingTimeout(element, 2)
         var value: CFTypeRef?
@@ -71,13 +71,13 @@ final class AXWindowController: WindowControlling {
         return value as? [AXUIElement] ?? []
     }
 
-    private func bool(_ element: AXUIElement, _ attribute: String) -> Bool? {
+    static func bool(_ element: AXUIElement, _ attribute: String) -> Bool? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
         return (value as? Bool)
     }
 
-    private func string(_ element: AXUIElement, _ attribute: String) -> String {
+    static func string(_ element: AXUIElement, _ attribute: String) -> String {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return "" }
         return value as? String ?? ""
@@ -86,18 +86,18 @@ final class AXWindowController: WindowControlling {
     /// Leaves full screen first (a full-screen window cannot be minimized), waits for the
     /// transition, then re-reads the window list because macOS replaces window objects meanwhile.
     private func minimizeWindows(of app: NSRunningApplication) async -> [String] {
-        for window in windows(of: app) where bool(window, "AXFullScreen") == true {
+        for window in Self.windows(of: app) where Self.bool(window, "AXFullScreen") == true {
             AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
         }
         for _ in 0..<30 { // up to 6 s
-            if !windows(of: app).contains(where: { bool($0, "AXFullScreen") == true }) { break }
+            if !Self.windows(of: app).contains(where: { Self.bool($0, "AXFullScreen") == true }) { break }
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
         try? await Task.sleep(nanoseconds: 500_000_000)
 
         var titles: [String] = []
-        for window in windows(of: app) where bool(window, kAXMinimizedAttribute) == false {
-            let title = string(window, kAXTitleAttribute)
+        for window in Self.windows(of: app) where Self.bool(window, kAXMinimizedAttribute) == false {
+            let title = Self.string(window, kAXTitleAttribute)
             if AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue) == .success {
                 titles.append(title)
             }

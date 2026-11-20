@@ -23,7 +23,18 @@ public enum BrowserKind: String, Codable, CaseIterable, Sendable {
 
 public enum SourceAction: String, Codable, Sendable {
     case pauseMedia = "pause_media"
+    /// Minimize the browser windows in which media was paused (needs `pauseMedia` first).
+    case minimizePausedWindows = "minimize_paused_windows"
     case windows
+
+    /// Fixed execution order, independent of the order in the config.
+    var rank: Int {
+        switch self {
+        case .pauseMedia: return 0
+        case .minimizePausedWindows: return 1
+        case .windows: return 2
+        }
+    }
 }
 
 public enum WindowAction: String, Codable, CaseIterable, Sendable {

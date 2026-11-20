@@ -28,6 +28,8 @@ public final class RuleEngine {
     private struct Journal {
         var mediaDone = false
         var media: [PausedMedia] = []
+        var minimizedDone = false
+        var minimizedWindows: [PausedMedia] = []
         var windowsDone = false
         var windows: [WindowJournalEntry] = []
     }
@@ -134,12 +136,16 @@ public final class RuleEngine {
 
     private func applyActions(for source: String) async {
         guard enabled else { return }
-        for action in config.actions(forSource: source) {
+        for action in config.actions(forSource: source).sorted(by: { $0.rank < $1.rank }) {
             switch action {
             case .pauseMedia:
                 guard !journal.mediaDone else { continue }
                 journal.media = await media.pausePlaying()
                 journal.mediaDone = true
+            case .minimizePausedWindows:
+                guard !journal.minimizedDone else { continue }
+                journal.minimizedWindows = await media.minimizeWindows(of: journal.media)
+                journal.minimizedDone = true
             case .windows:
                 guard !journal.windowsDone else { continue }
                 for rule in config.apps {
@@ -185,6 +191,9 @@ public final class RuleEngine {
         status = .idle
         for entry in done.windows where entry.rule.restore {
             await windowControl.restore(entry)
+        }
+        if done.minimizedDone {
+            await media.restoreWindows(done.minimizedWindows)
         }
         if done.mediaDone {
             await media.resume(done.media)
