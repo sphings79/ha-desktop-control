@@ -17,6 +17,8 @@ jobs:
       - name: Swift version
         run: swift --version
       - name: Unit tests
+        env:
+          SWIFT_BACKTRACE: enable=yes,output-to=stderr,sanitize=no
         run: swift test
       - name: Release build
         run: swift build -c release
