@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     private let engine: RuleEngine
     private var bridge: MQTTBridge?
     private var poller: Task<Void, Never>?
+    private var permissionWatcher: Task<Void, Never>?
 
     init() {
         let loaded = ConfigStore().load()
@@ -43,6 +44,7 @@ final class AppModel: ObservableObject {
 
         Task { await connect() }
         startPoller()
+        startPermissionWatcher()
     }
 
     // MARK: - Settings
@@ -77,7 +79,8 @@ final class AppModel: ObservableObject {
     }
 
     func refreshPermissions() {
-        accessibilityTrusted = AXWindowController.isTrusted
+        let trusted = AXWindowController.isTrusted
+        if trusted != accessibilityTrusted { accessibilityTrusted = trusted }
     }
 
     // MARK: - Control
@@ -111,6 +114,22 @@ final class AppModel: ObservableObject {
             lastError = nil
         } catch {
             lastError = "MQTT: \(error)"
+        }
+    }
+
+    /// Re-checks the Accessibility permission, so the Settings tab updates right after the user
+    /// grants it in System Settings (macOS sends no notification for this).
+    private func startPermissionWatcher() {
+        permissionWatcher = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self?.refreshPermissions()
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.refreshPermissions() }
         }
     }
 

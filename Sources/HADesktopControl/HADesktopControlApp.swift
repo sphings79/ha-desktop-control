@@ -19,14 +19,16 @@ struct HADesktopControlApp: App {
             Image(systemName: model.snapshot.status == .pausedByContact
                   ? "pause.circle.fill" : (model.snapshot.enabled ? "window.vertical.open" : "slash.circle"))
         }
-        Settings {
+        Window("Einstellungen", id: "settings") {
             SettingsView(model: model)
         }
+        .windowResizability(.contentSize)
     }
 }
 
 struct MenuView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Text(model.snapshot.status == .pausedByContact
@@ -44,8 +46,8 @@ struct MenuView: View {
         Button("Wiederherstellen") { model.manualRestore() }
         Divider()
         Button("Einstellungen …") {
+            openWindow(id: "settings")
             NSApp.activate(ignoringOtherApps: true)
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
         .keyboardShortcut(",")
         Button("Beenden") { NSApp.terminate(nil) }
