@@ -1,0 +1,40 @@
+# Review only - not deployed. Replace the entity ids and the device id before use.
+# Publishes the contact state as a RETAINED message, so the Mac picks up the current state
+# after a restart or reconnect.
+#
+# Topic: ha-desktop-control/<device_id>/contact/<source>   payload: open | closed
+# <device_id> is the "Geräte-ID" from the app settings (default "mac").
+# <source> is the name used in the app's "Kontakte" tab (lowercase, a-z 0-9 _).
+
+alias: Desktop control - publish contact states
+description: Sends window/door contact states to the macOS app via MQTT.
+mode: queued
+max_exceeded: silent
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.balcony_door_contact      # TODO: your entity
+      - binary_sensor.front_door_contact        # TODO: your entity
+  - trigger: homeassistant
+    event: start
+  - trigger: mqtt
+    topic: homeassistant/status                 # MQTT integration restarted -> resend
+    payload: online
+variables:
+  device_id: mac                                # TODO: same as in the app settings
+  sources:                                      # entity id -> source name
+    binary_sensor.balcony_door_contact: balkontuer
+    binary_sensor.front_door_contact: haustuer
+actions:
+  - repeat:
+      for_each: "{{ sources.keys() | list }}"
+      sequence:
+        - if:
+            - condition: template
+              value_template: "{{ states(repeat.item) in ['on', 'off'] }}"
+          then:
+            - action: mqtt.publish
+              data:
+                topic: "ha-desktop-control/{{ device_id }}/contact/{{ sources[repeat.item] }}"
+                payload: "{{ 'open' if is_state(repeat.item, 'on') else 'closed' }}"
+                retain: true

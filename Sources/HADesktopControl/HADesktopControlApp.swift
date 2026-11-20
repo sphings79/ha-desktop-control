@@ -1,0 +1,54 @@
+import AppKit
+import SwiftUI
+
+@main
+struct HADesktopControlApp: App {
+    @StateObject private var model = AppModel()
+
+    init() {
+        // Hidden check used while setting up permissions: pause, wait, resume, exit.
+        if CommandLine.arguments.contains("--selftest-media") {
+            SelfTest.runMediaAndExit()
+        }
+    }
+
+    var body: some Scene {
+        MenuBarExtra {
+            MenuView(model: model)
+        } label: {
+            Image(systemName: model.snapshot.status == .pausedByContact
+                  ? "pause.circle.fill" : (model.snapshot.enabled ? "window.vertical.open" : "slash.circle"))
+        }
+        Settings {
+            SettingsView(model: model)
+        }
+    }
+}
+
+struct MenuView: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        Text(model.snapshot.status == .pausedByContact
+             ? "Pausiert (Kontakt offen)" : "Bereit")
+        if !model.snapshot.openSources.isEmpty {
+            Text("Offen: " + model.snapshot.openSources.joined(separator: ", "))
+        }
+        Text(model.mqttConnected ? "MQTT: verbunden" : "MQTT: nicht verbunden")
+        if !model.nowPlaying.isEmpty { Text("Läuft: \(model.nowPlaying)") }
+        if let error = model.lastError { Text("⚠︎ \(error)") }
+        Divider()
+        Toggle("Steuerung aktiv", isOn: Binding(
+            get: { model.snapshot.enabled }, set: { model.setEnabled($0) }))
+        Button("Medien pausieren") { model.manualPause() }
+        Button("Wiederherstellen") { model.manualRestore() }
+        Divider()
+        Button("Einstellungen …") {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+        .keyboardShortcut(",")
+        Button("Beenden") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
+    }
+}
