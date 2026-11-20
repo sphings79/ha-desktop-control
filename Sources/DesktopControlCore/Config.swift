@@ -94,6 +94,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var browsers: [BrowserKind]
     public var apps: [AppRule]
     public var appearance: AppearanceMode
+    public var language: AppLanguage
+    /// Ask GitHub once a day whether a newer release exists.
+    public var checkForUpdates: Bool
 
     /// Actions for contact sources that have no explicit rule.
     public static let fallbackActions: [SourceAction] = [.pauseMedia]
@@ -105,7 +108,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
         sources: [String: SourceRule] = [:],
         browsers: [BrowserKind] = [.brave, .vivaldi, .chrome],
         apps: [AppRule] = [],
-        appearance: AppearanceMode = .system
+        appearance: AppearanceMode = .system,
+        language: AppLanguage = .system,
+        checkForUpdates: Bool = true
     ) {
         self.broker = broker
         self.deviceId = deviceId
@@ -114,6 +119,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.browsers = browsers
         self.apps = apps
         self.appearance = appearance
+        self.language = language
+        self.checkForUpdates = checkForUpdates
     }
 
     public init(from decoder: Decoder) throws {
@@ -126,6 +133,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         browsers = try c.decodeIfPresent([BrowserKind].self, forKey: .browsers) ?? d.browsers
         apps = try c.decodeIfPresent([AppRule].self, forKey: .apps) ?? d.apps
         appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? d.appearance
+        language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? d.language
+        checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
     }
 
     public func actions(forSource source: String) -> [SourceAction] {

@@ -25,8 +25,8 @@ Home Assistant weiß von der Tür, vom Fenster, von der Bewegung im Flur und von
 
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-overview-dark.png">
-  <img src="docs/screenshot-overview.png" alt="HA Desktop Control, Seite Übersicht: pausiert, weil ein Auslöser aktiv ist, MQTT verbunden, Läuft gerade, manuelle Buttons und Berechtigungen" width="680">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-overview-de-dark.png">
+  <img src="docs/screenshot-overview-de.png" alt="HA Desktop Control, Seite Übersicht: pausiert, weil ein Auslöser aktiv ist, MQTT verbunden, Läuft gerade, manuelle Buttons und Berechtigungen" width="680">
 </picture>
 </div>
 
@@ -53,7 +53,7 @@ Wird ein Auslöser aktiv, pausiert die App alle laufenden `<video>`- und `<audio
 
 Wird der letzte aktive Auslöser wieder frei, wartet die App eine einstellbare Zeit, holt die Fenster zurück und setzt die Videos fort. Rückgängig macht sie nur, was sie selbst getan hat: Drückst du zwischendurch selbst Play, wird nichts doppelt angefasst. Überlappen sich mehrere Auslöser, wird erst nach dem letzten zurückgeholt.
 
-Jeder Auslöser hat eigene Regeln. So kann die Bürotür das Video pausieren und das Browserfenster verstecken, während das Balkonfenster nur pausiert. Der Mac erscheint per MQTT Discovery als Gerät in Home Assistant mit Schalter, Status-Sensor, „Läuft gerade“-Sensor und zwei Buttons und liest den retained Zustand der Auslöser nach einem Neustart oder einer Wiederverbindung neu ein. Die App ist in Swift und SwiftUI geschrieben, startet auf Wunsch bei der Anmeldung, speichert das Broker-Passwort im macOS-Schlüsselbund, unterstützt TLS ab 1.2 und folgt dem hellen oder dunklen Erscheinungsbild des Systems, oder einer festen Wahl.
+Jeder Auslöser hat eigene Regeln. So kann die Bürotür das Video pausieren und das Browserfenster verstecken, während das Balkonfenster nur pausiert. Der Mac erscheint per MQTT Discovery als Gerät in Home Assistant mit Schalter, Status-Sensor, „Läuft gerade“-Sensor und zwei Buttons und liest den retained Zustand der Auslöser nach einem Neustart oder einer Wiederverbindung neu ein. Die App ist in Swift und SwiftUI geschrieben, startet auf Wunsch bei der Anmeldung, speichert das Broker-Passwort im macOS-Schlüsselbund, unterstützt TLS ab 1.2 und folgt dem hellen oder dunklen Erscheinungsbild des Systems, oder einer festen Wahl. Die Oberfläche gibt es auf Deutsch und Englisch.
 
 ## Welche Sensoren auslösen können
 
@@ -136,17 +136,18 @@ Ein kostenloses *Apple Development*-Zertifikat aus Xcode reicht (`security find-
 3. **Einstellungen › Übersicht:** Die Berechtigung **Bedienungshilfen** erteilen. Sie wird gebraucht, um den Vollbildmodus zu verlassen und Fenster zu minimieren.
 4. Im Browser **JavaScript von Apple Events erlauben** einschalten. macOS fragt beim ersten Pausieren nach der **Automation**-Freigabe.
 5. **Einstellungen › Auslöser:** Einen Auslöser hinzufügen (sein Name ist der letzte Teil des Topics) und festlegen, was er tut.
+6. Unter dem Auslöser **Home-Assistant-Automation (YAML)** öffnen, die Entity-ID deines Sensors eintragen und die erzeugte Automation nach Home Assistant kopieren (siehe unten).
 
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-contacts-dark.png">
-  <img src="docs/screenshot-contacts.png" alt="Seite Auslöser mit drei Auslösern und den Aktionen Video pausieren, Video-Fenster minimieren und Programme" width="680">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-contacts-de-dark.png">
+  <img src="docs/screenshot-contacts-de.png" alt="Seite Auslöser mit drei Auslösern und den Aktionen Video pausieren, Video-Fenster minimieren und Programme" width="680">
 </picture>
 </div>
 
 ### Einrichtung in Home Assistant
 
-Die App legt das MQTT-Discovery-Gerät selbst an. Für jeden Auslöser legst du eine Automation an, die seinen Zustand **retained** veröffentlicht. Retained heißt: Der Mac erfährt den aktuellen Zustand auch nach einem Neustart oder einer unterbrochenen Verbindung:
+Die App legt das MQTT-Discovery-Gerät selbst an. **Die App schreibt dir die Automation:** Unter jedem Auslöser zeigt *Home-Assistant-Automation (YAML)* auf der Seite *Auslöser* eine fertige Automation für deine Entity-ID, mit Kopier-Button. Für jeden Auslöser legst du eine Automation an, die seinen Zustand **retained** veröffentlicht. Retained heißt: Der Mac erfährt den aktuellen Zustand auch nach einem Neustart oder einer unterbrochenen Verbindung:
 
 ```yaml
 alias: Desktop control - Bürotür
@@ -200,7 +201,9 @@ Ersetze die Entität, die Geräte-ID (`mac_mini`) und den Auslösernamen (`buero
 | Programme | App, Aktion | Minimieren, ausblenden oder beenden; optional zurückholen oder neu starten |
 | Allgemein | Browser | Welche Chromium-Browser gesteuert werden |
 | Allgemein | Darstellung | System, hell oder dunkel |
+| Allgemein | Sprache | System, Deutsch oder Englisch |
 | Allgemein | Beim Anmelden starten | Startet die App bei der Anmeldung |
+| Allgemein | Updates | Tägliche Prüfung auf ein neues Release bei GitHub (abschaltbar) und die installierte Version |
 
 Auslöser ohne Regel pausieren nur das Video.
 
@@ -221,7 +224,7 @@ Präfix: `ha-desktop-control/<device_id>`
 
 ## Datenschutz und Sicherheit
 
-- Die App spricht nur mit deinem eigenen MQTT-Broker. Es gibt keinen Cloud-Dienst und keine Telemetrie.
+- Die App spricht mit deinem eigenen MQTT-Broker. Es gibt keinen Cloud-Dienst und keine Telemetrie. Die einzige weitere Verbindung ist die optionale tägliche Update-Prüfung: eine Anfrage an `api.github.com`, bei der GitHub deine IP-Adresse und die App-Version sieht. Unter *Allgemein* lässt sie sich abschalten.
 - Das Broker-Passwort liegt im macOS-Schlüsselbund, nie in der Konfigurationsdatei.
 - Die Konfigurationsdatei (`~/Library/Application Support/ha-desktop-control/config.json`) enthält keine Geheimnisse.
 - Der Sensor „Läuft gerade“ sendet den Titel des spielenden Browser-Tabs an deinen Broker.
@@ -259,6 +262,12 @@ Nein, nur für macOS. Der Kern mit MQTT und Regeln ist von der Plattform getrenn
 
 **Warum MQTT und kein Webhook?**
 Mit retained Nachrichten holt der Mac nach einem Neustart den aktuellen Zustand nach, und du brauchst nur den Broker, den du für Home Assistant ohnehin betreibst.
+
+**Woran erkenne ich, dass es eine neue Version gibt?**
+Die installierte Version steht unten im Menü und unter *Allgemein › Über*. Die App fragt einmal täglich bei GitHub nach, zeigt *Update verfügbar* im Menü und auf der Übersicht an, und *Herunterladen* öffnet die Release-Seite. Sie installiert nichts von selbst.
+
+**Welche Sprachen spricht die App?**
+Deutsch und Englisch. Standardmäßig folgt sie der macOS-Sprache; unter *Allgemein › Sprache* wählst du eine feste.
 
 **Muss ich nach Updates immer wieder Berechtigungen erteilen?**
 Nur beim ad-hoc signierten Release, weil macOS jeden Build als neue App behandelt. Wer aus dem Quelltext mit festem Zertifikat baut, vermeidet das.

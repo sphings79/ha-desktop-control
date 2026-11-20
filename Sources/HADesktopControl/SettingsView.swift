@@ -10,13 +10,13 @@ struct SettingsView: View {
     enum Page: String, CaseIterable, Identifiable {
         case overview, contacts, apps, mqtt, general
         var id: String { rawValue }
-        var title: String {
+        var titleKey: String {
             switch self {
-            case .overview: return "Übersicht"
-            case .contacts: return "Auslöser"
-            case .apps: return "Programme"
+            case .overview: return "Overview"
+            case .contacts: return "Triggers"
+            case .apps: return "Programs"
             case .mqtt: return "MQTT"
-            case .general: return "Allgemein"
+            case .general: return "General"
             }
         }
         var symbol: String {
@@ -40,7 +40,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             List(Page.allCases, selection: $page) { item in
-                Label(item.title, systemImage: item.symbol).tag(item)
+                Label(model.t(item.titleKey), systemImage: item.symbol).tag(item)
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 180, max: 210)
         } detail: {
@@ -57,7 +57,7 @@ struct SettingsView: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle((page ?? .overview).title)
+            .navigationTitle(model.t((page ?? .overview).titleKey))
         }
         .frame(minWidth: 760, minHeight: 540)
         .onAppear { model.refreshPermissions() }
@@ -125,11 +125,13 @@ private struct OverviewPage: View {
         !enabled ? "slash.circle.fill" : (paused ? "pause.circle.fill" : "checkmark.circle.fill")
     }
     private var heroColor: Color { !enabled ? .gray : (paused ? .orange : .green) }
-    private var heroTitle: String { !enabled ? "Deaktiviert" : (paused ? "Pausiert – Auslöser aktiv" : "Bereit") }
+    private var heroTitle: String {
+        !enabled ? model.t("Disabled") : (paused ? model.t("Paused – trigger active") : model.t("Ready"))
+    }
     private var heroSubtitle: String {
         model.snapshot.openSources.isEmpty
-            ? "Alle Auslöser inaktiv"
-            : "Aktiv: " + model.snapshot.openSources.joined(separator: ", ")
+            ? model.t("All triggers inactive")
+            : model.t("Active: %@", model.snapshot.openSources.joined(separator: ", "))
     }
 
     var body: some View {
@@ -146,6 +148,17 @@ private struct OverviewPage: View {
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.14)))
             }
 
+            if let update = model.availableUpdate {
+                Card(title: model.t("Update available"), symbol: "arrow.down.circle.fill") {
+                    HStack {
+                        Text(model.t("Version %@ is available (you have %@).", update.tag, AppModel.currentVersion))
+                        Spacer()
+                        Button(model.t("Download")) { model.openReleasePage() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+
             Card {
                 HStack(spacing: 16) {
                     Image(systemName: heroSymbol)
@@ -157,73 +170,77 @@ private struct OverviewPage: View {
                         Text(heroSubtitle).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Toggle("Steuerung aktiv", isOn: Binding(
+                    Toggle(model.t("Control active"), isOn: Binding(
                         get: { model.snapshot.enabled }, set: { model.setEnabled($0) }))
                         .toggleStyle(.switch)
                 }
             }
 
             HStack(alignment: .top, spacing: 14) {
-                Card(title: "Verbindung", symbol: "network", fillHeight: true) {
+                Card(title: model.t("Connection"), symbol: "network", fillHeight: true) {
                     HStack {
                         StatusDot(color: model.mqttConnected ? .green : .red)
-                        Text(model.mqttConnected ? "MQTT verbunden" : "Nicht verbunden")
+                        Text(model.mqttConnected ? model.t("MQTT connected") : model.t("Not connected"))
                     }
                     Hint(model.config.broker.host.isEmpty
-                         ? "Kein Broker eingetragen"
-                         : "\(model.config.broker.host):\(model.config.broker.port) · Gerät „\(Topics.slug(model.config.deviceId))“")
+                         ? model.t("No broker configured")
+                         : model.t("%@:%@ · device “%@”", model.config.broker.host,
+                                   String(model.config.broker.port), Topics.slug(model.config.deviceId)))
                 }
-                Card(title: "Läuft gerade", symbol: "play.circle", fillHeight: true) {
-                    Text(model.nowPlaying.isEmpty ? "Nichts" : model.nowPlaying)
+                Card(title: model.t("Now playing"), symbol: "play.circle", fillHeight: true) {
+                    Text(model.nowPlaying.isEmpty ? model.t("Nothing") : model.nowPlaying)
                         .lineLimit(3)
                         .foregroundStyle(model.nowPlaying.isEmpty ? .secondary : .primary)
-                    Hint("Wird alle 15 Sekunden aktualisiert.")
+                    Hint(model.t("Updated every 15 seconds."))
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
 
-            Card(title: "Manuell", symbol: "hand.tap") {
+            Card(title: model.t("Manual"), symbol: "hand.tap") {
                 HStack {
-                    Button { model.manualPause() } label: { Label("Medien pausieren", systemImage: "pause.fill") }
+                    Button { model.manualPause() } label: {
+                        Label(model.t("Pause media"), systemImage: "pause.fill")
+                    }
                     Button { model.manualRestore() } label: {
-                        Label("Wiederherstellen", systemImage: "arrow.counterclockwise")
+                        Label(model.t("Restore"), systemImage: "arrow.counterclockwise")
                     }
                     Spacer()
                 }
-                Hint("Dasselbe wie die Buttons in Home Assistant.")
+                Hint(model.t("Same as the buttons in Home Assistant."))
             }
 
-            Card(title: "Berechtigungen", symbol: "lock.shield") {
+            Card(title: model.t("Permissions"), symbol: "lock.shield") {
                 HStack {
                     StatusDot(color: model.accessibilityTrusted ? .green : .orange)
-                    Text("Bedienungshilfen")
+                    Text(model.t("Accessibility"))
                     Spacer()
                     if model.accessibilityTrusted {
-                        Text("erteilt").foregroundStyle(.secondary)
+                        Text(model.t("granted")).foregroundStyle(.secondary)
                     } else {
-                        Button("Anfragen") { model.requestAccessibility() }
+                        Button(model.t("Request")) { model.requestAccessibility() }
                     }
                 }
-                Hint("Nötig, um Fenster im Vollbild zu verlassen und zu minimieren.")
+                Hint(model.t("Needed to leave full screen and minimize windows."))
                 Divider()
                 HStack(alignment: .top) {
                     Image(systemName: "safari").foregroundStyle(.secondary)
-                    Hint("Browser: Menü Ansicht › Entwickler › „JavaScript von Apple Events erlauben“ einschalten. macOS fragt beim ersten Pausieren nach der Automation-Freigabe.")
+                    Hint(model.t("Browser: enable View › Developer › “Allow JavaScript from Apple Events”. macOS asks for the Automation permission the first time media is paused."))
                 }
             }
         }
     }
 }
 
-// MARK: - Contacts
+// MARK: - Triggers
 
 private struct ContactsPage: View {
     @ObservedObject var model: AppModel
     @State private var newSource = ""
+    @State private var expanded: Set<String> = []
 
     var body: some View {
         VStack(spacing: 14) {
-            Hint("Jede Quelle ist ein Auslöser, also ein beliebiger Sensor oder eine andere Entität aus Home Assistant. HA sendet `open` (oder `on`) beim Auslösen und `closed` (oder `off`) beim Beenden an `ha-desktop-control/\(Topics.slug(model.config.deviceId))/contact/<Name>`. Quellen ohne Regel pausieren nur Medien.")
+            Hint(model.t("Each source is a trigger: any sensor or other entity from Home Assistant. HA sends `open` (or `on`) when it triggers and `closed` (or `off`) when it ends, to `ha-desktop-control/%@/contact/<name>`. Sources without a rule only pause media.", Topics.slug(model.config.deviceId)))
 
             ForEach(model.config.sources.keys.sorted(), id: \.self) { name in
                 Card {
@@ -235,34 +252,44 @@ private struct ContactsPage: View {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.borderless)
-                        .help("Quelle entfernen")
+                        .help(model.t("Remove trigger"))
                     }
                     HStack {
-                        chip("Video pausieren", "pause.fill", name, .pauseMedia)
-                        chip("Video-Fenster minimieren", "rectangle.bottomhalf.inset.filled", name, .minimizePausedWindows)
-                        chip("Programme", "macwindow", name, .windows)
+                        chip(model.t("Pause video"), "pause.fill", name, .pauseMedia)
+                        chip(model.t("Minimize video windows"), "rectangle.bottomhalf.inset.filled", name, .minimizePausedWindows)
+                        chip(model.t("Programs"), "macwindow", name, .windows)
                     }
                     Hint(summary(for: name))
+                    DisclosureGroup(model.t("Home Assistant automation (YAML)"), isExpanded: Binding(
+                        get: { expanded.contains(name) },
+                        set: { open in
+                            if open { expanded.insert(name) } else { expanded.remove(name) }
+                        })) {
+                        AutomationGenerator(model: model, source: name)
+                    }
+                    .font(.callout)
                 }
             }
 
-            Card(title: "Neuer Auslöser", symbol: "plus.circle") {
+            Card(title: model.t("New trigger"), symbol: "plus.circle") {
                 HStack {
-                    TextField("Name, z. B. buero_tuer", text: $newSource)
+                    TextField(model.t("Name, e.g. office_door"), text: $newSource)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(add)
-                    Button("Hinzufügen", action: add)
+                    Button(model.t("Add"), action: add)
                         .disabled(newSource.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
 
-            Card(title: "Zurückholen", symbol: "timer") {
+            Card(title: model.t("Restoring"), symbol: "timer") {
                 Stepper(value: $model.config.resumeDelaySeconds, in: 0...300, step: 5) {
-                    Text("Erst \(Int(model.config.resumeDelaySeconds)) Sekunden nachdem der letzte Auslöser inaktiv wurde")
+                    Text(model.t("Wait %@ seconds after the last trigger became inactive",
+                                 String(Int(model.config.resumeDelaySeconds))))
                 }
-                Hint("Wird in dieser Zeit ein Auslöser erneut aktiv, bleibt alles pausiert.")
+                Hint(model.t("If a trigger becomes active again in this time, everything stays paused."))
             }
         }
+        .onAppear { if model.demoExpandYAML { expanded = ["office_door"] } }
     }
 
     private func chip(_ title: String, _ symbol: String, _ source: String, _ action: SourceAction) -> some View {
@@ -285,12 +312,12 @@ private struct ContactsPage: View {
 
     private func summary(for source: String) -> String {
         let actions = model.config.sources[source]?.actions ?? []
-        if actions.isEmpty { return "Keine Aktion – dieser Auslöser hat keine Wirkung." }
+        if actions.isEmpty { return model.t("No action – this trigger has no effect.") }
         var parts: [String] = []
-        if actions.contains(.pauseMedia) { parts.append("pausiert laufende Videos") }
-        if actions.contains(.minimizePausedWindows) { parts.append("minimiert deren Browserfenster") }
-        if actions.contains(.windows) { parts.append("behandelt die Programme aus „Programme“") }
-        return "Beim Auslösen: " + parts.joined(separator: ", ") + "."
+        if actions.contains(.pauseMedia) { parts.append(model.t("pauses playing videos")) }
+        if actions.contains(.minimizePausedWindows) { parts.append(model.t("minimizes their browser windows")) }
+        if actions.contains(.windows) { parts.append(model.t("handles the apps from “Programs”")) }
+        return model.t("When triggered: %@.", parts.joined(separator: ", "))
     }
 
     private func add() {
@@ -302,17 +329,55 @@ private struct ContactsPage: View {
     }
 }
 
-// MARK: - Apps
+/// Live YAML for the Home Assistant automation that feeds one trigger.
+private struct AutomationGenerator: View {
+    @ObservedObject var model: AppModel
+    var source: String
+    @State private var entity = AutomationExample.placeholderEntity
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField(model.t("Entity ID"), text: $entity)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            if !AutomationExample.isValidEntityId(entity) {
+                Hint(model.t("Not a valid entity ID, the placeholder is used."))
+            }
+            ScrollView {
+                Text(model.automationYAML(for: source, entity: entity))
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(height: 200)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
+            HStack {
+                Hint(model.t("Replace the entity with your sensor. The state is published retained, so the Mac knows it after a restart."))
+                Spacer()
+                Button {
+                    model.copyAutomationYAML(for: source, entity: entity)
+                } label: {
+                    Label(model.copiedSource == source ? model.t("Copied") : model.t("Copy YAML"),
+                          systemImage: model.copiedSource == source ? "checkmark" : "doc.on.doc")
+                }
+            }
+        }
+        .padding(.top, 6)
+    }
+}
+
+// MARK: - Programs
 
 private struct AppsPage: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
         VStack(spacing: 14) {
-            Hint("Diese Programme werden bei Auslösern mit der Option „Programme“ behandelt. Zurückgeholt wird nur, was die App selbst getan hat.")
+            Hint(model.t("These apps are handled by triggers with the “Programs” option. Only what the app did itself is restored."))
 
             if model.config.apps.isEmpty {
-                Card { Hint("Noch keine Programme. Füge unten eines hinzu.") }
+                Card { Hint(model.t("No programs yet. Add one below.")) }
             }
 
             ForEach($model.config.apps) { $rule in
@@ -331,29 +396,29 @@ private struct AppsPage: View {
                             .buttonStyle(.borderless)
                     }
                     HStack {
-                        Picker("Aktion", selection: $rule.action) {
-                            Text("Minimieren").tag(WindowAction.minimize)
-                            Text("Ausblenden").tag(WindowAction.hide)
-                            Text("Beenden").tag(WindowAction.quit)
+                        Picker(model.t("Action"), selection: $rule.action) {
+                            Text(model.t("Minimize")).tag(WindowAction.minimize)
+                            Text(model.t("Hide")).tag(WindowAction.hide)
+                            Text(model.t("Quit")).tag(WindowAction.quit)
                         }
                         .pickerStyle(.segmented)
-                        .frame(maxWidth: 300)
+                        .frame(maxWidth: 340)
                         Spacer()
-                        Toggle(rule.action == .quit ? "Neu starten" : "Zurückholen", isOn: $rule.restore)
+                        Toggle(rule.action == .quit ? model.t("Relaunch") : model.t("Restore"), isOn: $rule.restore)
                     }
                 }
             }
 
-            Card(title: "Programm hinzufügen", symbol: "plus.circle") {
+            Card(title: model.t("Add program"), symbol: "plus.circle") {
                 HStack {
-                    Menu("Laufendes Programm …") {
+                    Menu(model.t("Running app …")) {
                         ForEach(runningApps, id: \.bundleIdentifier) { app in
                             Button(app.localizedName ?? app.bundleIdentifier ?? "?") {
                                 add(bundleId: app.bundleIdentifier, name: app.localizedName)
                             }
                         }
                     }
-                    Button("Aus Ordner wählen …", action: choose)
+                    Button(model.t("Choose from folder …"), action: choose)
                     Spacer()
                 }
             }
@@ -392,46 +457,46 @@ private struct MQTTPage: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Card(title: "Broker", symbol: "server.rack") {
+            Card(title: model.t("Broker"), symbol: "server.rack") {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                     GridRow {
-                        Text("Host")
+                        Text(model.t("Host"))
                         TextField("", text: $model.config.broker.host).textFieldStyle(.roundedBorder)
                     }
                     GridRow {
-                        Text("Port")
+                        Text(model.t("Port"))
                         TextField("", value: $model.config.broker.port, format: .number.grouping(.never))
                             .textFieldStyle(.roundedBorder).frame(width: 100)
                     }
                     GridRow {
-                        Text("Benutzer")
+                        Text(model.t("User"))
                         TextField("", text: $model.config.broker.username).textFieldStyle(.roundedBorder)
                     }
                     GridRow {
-                        Text("Passwort")
+                        Text(model.t("Password"))
                         SecureField("", text: $password).textFieldStyle(.roundedBorder)
                     }
                     GridRow {
-                        Text("Verschlüsselung")
-                        Toggle("TLS (mindestens 1.2)", isOn: $model.config.broker.tls)
+                        Text(model.t("Encryption"))
+                        Toggle(model.t("TLS (1.2 or newer)"), isOn: $model.config.broker.tls)
                     }
                 }
-                Hint("Das Passwort liegt im macOS-Schlüsselbund, nie in der Konfigurationsdatei.")
+                Hint(model.t("The password is stored in the macOS Keychain, never in the config file."))
             }
 
-            Card(title: "Gerät", symbol: "desktopcomputer") {
+            Card(title: model.t("Device"), symbol: "desktopcomputer") {
                 HStack {
-                    Text("Geräte-ID")
+                    Text(model.t("Device ID"))
                     TextField("", text: $model.config.deviceId).textFieldStyle(.roundedBorder)
                 }
-                Hint("Topics: ha-desktop-control/\(Topics.slug(model.config.deviceId))/…")
+                Hint(model.t("Topics: ha-desktop-control/%@/…", Topics.slug(model.config.deviceId)))
             }
 
             HStack {
                 StatusDot(color: model.mqttConnected ? .green : .red)
-                Text(model.mqttConnected ? "Verbunden" : "Nicht verbunden")
+                Text(model.mqttConnected ? model.t("Connected") : model.t("Not connected"))
                 Spacer()
-                Button("Speichern & verbinden") { model.save(password: password) }
+                Button(model.t("Save & connect")) { model.save(password: password) }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             }
@@ -447,13 +512,13 @@ private struct GeneralPage: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Card(title: "Browser", symbol: "globe") {
+            Card(title: model.t("Browsers"), symbol: "globe") {
                 ForEach(BrowserKind.allCases, id: \.self) { browser in
                     let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) != nil
                     HStack {
                         Image(nsImage: appIcon(bundleId: browser.bundleId)).resizable().frame(width: 24, height: 24)
                         Text(browser.displayName)
-                        if !installed { Text("nicht installiert").font(.caption).foregroundStyle(.secondary) }
+                        if !installed { Text(model.t("not installed")).font(.caption).foregroundStyle(.secondary) }
                         Spacer()
                         Toggle("", isOn: Binding(
                             get: { model.config.browsers.contains(browser) },
@@ -465,37 +530,75 @@ private struct GeneralPage: View {
                             .disabled(!installed)
                     }
                 }
-                Hint("Chromium-Browser mit AppleScript. Safari und Opera GX werden nicht unterstützt.")
+                Hint(model.t("Chromium browsers via AppleScript. Safari and Opera GX are not supported."))
             }
 
-            Card(title: "Darstellung", symbol: "circle.lefthalf.filled") {
-                Picker("Darstellung", selection: $model.config.appearance) {
-                    Text("System").tag(AppearanceMode.system)
-                    Text("Hell").tag(AppearanceMode.light)
-                    Text("Dunkel").tag(AppearanceMode.dark)
+            Card(title: model.t("Appearance"), symbol: "circle.lefthalf.filled") {
+                Picker(model.t("Appearance"), selection: $model.config.appearance) {
+                    Text(model.t("System")).tag(AppearanceMode.system)
+                    Text(model.t("Light")).tag(AppearanceMode.light)
+                    Text(model.t("Dark")).tag(AppearanceMode.dark)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(maxWidth: 320)
-                Hint("„System“ folgt der Einstellung von macOS.")
+                Hint(model.t("“System” follows the macOS setting."))
             }
 
-            Card(title: "Start", symbol: "power") {
-                Toggle("Beim Anmelden starten", isOn: Binding(
+            Card(title: model.t("Language"), symbol: "globe.europe.africa") {
+                Picker(model.t("Language"), selection: $model.config.language) {
+                    Text(model.t("System")).tag(AppLanguage.system)
+                    Text("Deutsch").tag(AppLanguage.de)
+                    Text("English").tag(AppLanguage.en)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 320)
+            }
+
+            Card(title: model.t("Start"), symbol: "power") {
+                Toggle(model.t("Launch at login"), isOn: Binding(
                     get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
             }
 
-            Card(title: "Berechtigungen", symbol: "lock.shield") {
+            Card(title: model.t("Permissions"), symbol: "lock.shield") {
                 HStack {
                     StatusDot(color: model.accessibilityTrusted ? .green : .orange)
-                    Text("Bedienungshilfen")
+                    Text(model.t("Accessibility"))
                     Spacer()
                     if model.accessibilityTrusted {
-                        Text("erteilt").foregroundStyle(.secondary)
+                        Text(model.t("granted")).foregroundStyle(.secondary)
                     } else {
-                        Button("Anfragen") { model.requestAccessibility() }
+                        Button(model.t("Request")) { model.requestAccessibility() }
                     }
                 }
+            }
+
+            Card(title: model.t("About"), symbol: "info.circle") {
+                HStack {
+                    Text(model.t("Version %@", AppModel.currentVersion)).font(.headline)
+                    Spacer()
+                    Button(model.t("Check for updates")) { model.checkForUpdates() }
+                        .disabled(model.updateState == .checking)
+                }
+                HStack {
+                    switch model.updateState {
+                    case .checking: Text(model.t("Checking …"))
+                    case .failed: Text(model.t("Could not check for updates.")).foregroundStyle(.orange)
+                    case .upToDate(let date):
+                        if let update = model.availableUpdate {
+                            Text(model.t("Update available: %@", update.tag))
+                            Button(model.t("Download")) { model.openReleasePage() }
+                        } else {
+                            Text("\(model.t("Up to date")) · \(model.t("Last checked: %@", date.formatted(date: .abbreviated, time: .shortened)))")
+                                .foregroundStyle(.secondary)
+                        }
+                    case .idle: EmptyView()
+                    }
+                }
+                .font(.callout)
+                Toggle(model.t("Automatically check for updates"), isOn: $model.config.checkForUpdates)
+                Hint(model.t("Checks GitHub once a day for a new release. GitHub sees your IP address and the app version."))
             }
         }
     }

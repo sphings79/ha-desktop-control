@@ -13,6 +13,18 @@ final class AppModel: ObservableObject {
     @Published private(set) var nowPlaying = ""
     @Published private(set) var accessibilityTrusted = AXWindowController.isTrusted
     @Published var launchAtLogin: Bool
+    @Published private(set) var availableUpdate: ReleaseInfo?
+    @Published private(set) var updateState: UpdateState = .idle
+    @Published private(set) var copiedSource: String?
+    /// Screenshot mode only: open the YAML generator of the first trigger.
+    private(set) var demoExpandYAML = false
+
+    enum UpdateState: Equatable {
+        case idle, checking, upToDate(Date), failed
+    }
+
+    /// `CFBundleShortVersionString` of the app bundle, or "dev" when run from `swift run`.
+    static let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
 
     private let store = ConfigStore()
     private let media: BrowserMediaController
@@ -23,6 +35,7 @@ final class AppModel: ObservableObject {
     private var permissionWatcher: Task<Void, Never>?
     private var autosave: AnyCancellable?
     private var appearanceWatcher: AnyCancellable?
+    private var updateLoop: Task<Void, Never>?
 
     init() {
         let loaded = ConfigStore().load()
@@ -59,6 +72,76 @@ final class AppModel: ObservableObject {
         Task { await connect() }
         startPoller()
         startPermissionWatcher()
+        startUpdateLoop()
+    }
+
+    // MARK: - Language
+
+    var language: AppLanguage { L10n.resolve(config.language) }
+
+    /// Translated text; views call this so they refresh when the language changes.
+    func t(_ key: String, _ args: String...) -> String {
+        L10n.tr(key, args, language: language)
+    }
+
+    // MARK: - Updates
+
+    func checkForUpdates() {
+        guard updateState != .checking else { return }
+        updateState = .checking
+        Task {
+            var request = URLRequest(
+                url: URL(string: "https://api.github.com/repos/sphings79/ha-desktop-control/releases/latest")!,
+                timeoutInterval: 10)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("ha-desktop-control/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let info = ReleaseInfo.parse(data) else {
+                    updateState = .failed
+                    return
+                }
+                if let current = AppVersion(Self.currentVersion), current < info.version {
+                    availableUpdate = info
+                } else {
+                    availableUpdate = nil
+                }
+                updateState = .upToDate(Date())
+            } catch {
+                updateState = .failed
+            }
+        }
+    }
+
+    func openReleasePage() {
+        if let url = availableUpdate?.url { NSWorkspace.shared.open(url) }
+    }
+
+    private func startUpdateLoop() {
+        updateLoop = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            while !Task.isCancelled {
+                guard let self else { return }
+                if self.config.checkForUpdates { self.checkForUpdates() }
+                try? await Task.sleep(nanoseconds: 24 * 3600 * 1_000_000_000)
+            }
+        }
+    }
+
+    // MARK: - Automation example
+
+    func automationYAML(for source: String, entity: String) -> String {
+        AutomationExample.yaml(deviceId: config.deviceId, source: source, entity: entity)
+    }
+
+    func copyAutomationYAML(for source: String, entity: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(automationYAML(for: source, entity: entity), forType: .string)
+        copiedSource = source
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            if copiedSource == source { copiedSource = nil }
+        }
     }
 
     static func apply(appearance: AppearanceMode) {
@@ -79,6 +162,7 @@ final class AppModel: ObservableObject {
         engine = RuleEngine(config: config, media: media, windows: windows)
         mqttConnected = true
         accessibilityTrusted = true
+        demoExpandYAML = true
     }
 
     private func persist() {

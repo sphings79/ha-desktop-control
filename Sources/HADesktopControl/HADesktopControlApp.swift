@@ -22,7 +22,7 @@ struct HADesktopControlApp: App {
             Image(systemName: model.snapshot.status == .pausedByContact
                   ? "pause.circle.fill" : (model.snapshot.enabled ? "window.vertical.open" : "slash.circle"))
         }
-        Window("Einstellungen", id: "settings") {
+        Window("HA Desktop Control", id: "settings") {
             SettingsView(model: model)
         }
         .windowResizability(.contentSize)
@@ -35,25 +35,30 @@ struct MenuView: View {
 
     var body: some View {
         Text(model.snapshot.status == .pausedByContact
-             ? "Pausiert (Auslöser aktiv)" : "Bereit")
+             ? model.t("Paused (trigger active)") : model.t("Ready"))
         if !model.snapshot.openSources.isEmpty {
-            Text("Aktiv: " + model.snapshot.openSources.joined(separator: ", "))
+            Text(model.t("Active: %@", model.snapshot.openSources.joined(separator: ", ")))
         }
-        Text(model.mqttConnected ? "MQTT: verbunden" : "MQTT: nicht verbunden")
-        if !model.nowPlaying.isEmpty { Text("Läuft: \(model.nowPlaying)") }
+        Text(model.mqttConnected ? model.t("MQTT: connected") : model.t("MQTT: not connected"))
+        if !model.nowPlaying.isEmpty { Text(model.t("Playing: %@", model.nowPlaying)) }
         if let error = model.lastError { Text("⚠︎ \(error)") }
         Divider()
-        Toggle("Steuerung aktiv", isOn: Binding(
+        if let update = model.availableUpdate {
+            Button(model.t("Update available: %@", update.tag)) { model.openReleasePage() }
+            Divider()
+        }
+        Toggle(model.t("Control active"), isOn: Binding(
             get: { model.snapshot.enabled }, set: { model.setEnabled($0) }))
-        Button("Medien pausieren") { model.manualPause() }
-        Button("Wiederherstellen") { model.manualRestore() }
+        Button(model.t("Pause media")) { model.manualPause() }
+        Button(model.t("Restore")) { model.manualRestore() }
         Divider()
-        Button("Einstellungen …") {
+        Button(model.t("Settings …")) {
             openWindow(id: "settings")
             NSApp.activate(ignoringOtherApps: true)
         }
         .keyboardShortcut(",")
-        Button("Beenden") { NSApp.terminate(nil) }
+        Text(model.t("Version %@", AppModel.currentVersion))
+        Button(model.t("Quit")) { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 }

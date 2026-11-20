@@ -53,7 +53,7 @@ When a trigger becomes active, the app pauses every playing `<video>` and `<audi
 
 When the last active trigger clears, the app waits for a configurable delay, brings the windows back and resumes the videos. It only undoes what it did itself: if you pressed play yourself in the meantime, nothing is touched twice, and if two triggers overlap, it restores only after the last one has cleared.
 
-Each trigger has its own rules, so the office door can pause video and hide the browser window while the balcony window only pauses. The Mac appears in Home Assistant as a device through MQTT Discovery, with an on/off switch, a status sensor, a "now playing" sensor and two buttons, and it reads the retained trigger state again after a restart or reconnect. The app is written in Swift and SwiftUI, starts at login if you want, keeps the broker password in the macOS Keychain, supports TLS 1.2 and newer, and follows the system light or dark appearance, or a fixed one.
+Each trigger has its own rules, so the office door can pause video and hide the browser window while the balcony window only pauses. The Mac appears in Home Assistant as a device through MQTT Discovery, with an on/off switch, a status sensor, a "now playing" sensor and two buttons, and it reads the retained trigger state again after a restart or reconnect. The app is written in Swift and SwiftUI, starts at login if you want, keeps the broker password in the macOS Keychain, supports TLS 1.2 and newer, and follows the system light or dark appearance, or a fixed one. The interface is available in English and German.
 
 ## Which sensors can trigger it
 
@@ -132,10 +132,11 @@ A free *Apple Development* certificate from Xcode is enough (`security find-iden
 ## Setup
 
 1. Start the app. A window icon appears in the menu bar.
-2. **Settings › MQTT:** enter host, port, user and password, choose a **device ID** (for example `mac_mini`) and click *Save & connect* (the settings window is currently in German).
+2. **Settings › MQTT:** enter host, port, user and password, choose a **device ID** (for example `mac_mini`) and click *Save & connect*.
 3. **Settings › Overview:** grant the **Accessibility** permission. It is needed to leave full screen and to minimize windows.
 4. In your browser, enable **Allow JavaScript from Apple Events**. macOS asks for the **Automation** permission the first time media is paused.
 5. **Settings › Triggers:** add a trigger (its name is the last part of the topic) and choose what it does.
+6. Open **Home Assistant automation (YAML)** under the trigger, enter your sensor's entity ID and copy the generated automation into Home Assistant (see below).
 
 <div align="center">
 <picture>
@@ -146,7 +147,7 @@ A free *Apple Development* certificate from Xcode is enough (`security find-iden
 
 ### Home Assistant setup
 
-The app publishes an MQTT Discovery device on its own. For each trigger, create one automation that publishes its state **retained**. Retained means the Mac learns the current state after a restart or a lost connection:
+The app publishes an MQTT Discovery device on its own. **The app can write the automation for you:** under each trigger on the *Triggers* page, *Home Assistant automation (YAML)* shows a ready automation for your entity ID with a copy button. For each trigger, create one automation that publishes its state **retained**. Retained means the Mac learns the current state after a restart or a lost connection:
 
 ```yaml
 alias: Desktop control - office door
@@ -200,7 +201,9 @@ Replace the entity, the device ID (`mac_mini`) and the trigger name (`office_doo
 | Programs | App, action | Minimize, hide or quit; optional restore or relaunch |
 | General | Browsers | Which Chromium browsers are controlled |
 | General | Appearance | System, light or dark |
+| General | Language | System, English or German |
 | General | Start at login | Launches the app when you sign in |
+| General | Updates | Daily check for a new release on GitHub (can be switched off), plus the installed version |
 
 Triggers without a rule fall back to *pause video* only.
 
@@ -221,7 +224,7 @@ Prefix: `ha-desktop-control/<device_id>`
 
 ## Privacy and security
 
-- The app talks only to your own MQTT broker. There is no cloud service and no telemetry.
+- The app talks to your own MQTT broker. There is no cloud service and no telemetry. The only other connection is the optional daily update check: one request to `api.github.com` that shows GitHub your IP address and the app version. Switch it off under *General*.
 - The broker password lives in the macOS Keychain, never in the config file.
 - The config file (`~/Library/Application Support/ha-desktop-control/config.json`) holds no secrets.
 - The "now playing" sensor publishes the title of the playing browser tab to your broker.
@@ -259,6 +262,12 @@ No, it is macOS only. The core with MQTT and rules is separate from the platform
 
 **Why MQTT and not a webhook?**
 Retained messages let the Mac catch up on the current state after a restart, and the broker you run for Home Assistant is all you need.
+
+**How do I know there is a new version?**
+The installed version is shown at the bottom of the menu and on *General › About*. The app checks GitHub once a day, shows *Update available* in the menu and on the overview page, and the *Download* button opens the release page. It does not install anything by itself.
+
+**Which languages does the app speak?**
+English and German. It follows the macOS language by default; you can pick one under *General › Language*.
 
 **Do I need to keep granting permissions after updates?**
 Only with the ad-hoc signed release, because macOS treats every build as a new app. Building from source with a stable certificate avoids that.

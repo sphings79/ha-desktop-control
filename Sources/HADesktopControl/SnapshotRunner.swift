@@ -11,15 +11,19 @@ enum SnapshotRunner {
         Task { @MainActor in
             let pages: [(SettingsView.Page, String, CGFloat)] = [
                 (.overview, "screenshot-overview.png", 590),
-                (.contacts, "screenshot-contacts.png", 700),
+                (.contacts, "screenshot-contacts.png", 1020),
                 (.apps, "screenshot-programs.png", 470)
             ]
             for (page, name, height) in pages {
-                for dark in [false, true] {
-                    let file = dark ? name.replacingOccurrences(of: ".png", with: "-dark.png") : name
-                    capture(page: page, height: height, dark: dark,
-                            to: URL(fileURLWithPath: directory).appendingPathComponent(file))
-                    try? await Task.sleep(nanoseconds: 800_000_000)
+                for language in [AppLanguage.en, .de] {
+                    for dark in [false, true] {
+                        var file = name.replacingOccurrences(of: ".png", with: "")
+                        if language == .de { file += "-de" }
+                        if dark { file += "-dark" }
+                        capture(page: page, height: height, dark: dark, language: language,
+                                to: URL(fileURLWithPath: directory).appendingPathComponent(file + ".png"))
+                        try? await Task.sleep(nanoseconds: 700_000_000)
+                    }
                 }
             }
             exit(0)
@@ -28,7 +32,7 @@ enum SnapshotRunner {
         exit(0)
     }
 
-    private static func sampleConfig() -> AppConfig {
+    private static func sampleConfig(_ language: AppLanguage) -> AppConfig {
         AppConfig(
             broker: BrokerConfig(host: "mqtt.local", port: 1883, tls: false, username: "homeassistant"),
             deviceId: "mac_mini",
@@ -42,12 +46,13 @@ enum SnapshotRunner {
             apps: [
                 AppRule(bundleId: "com.apple.calculator", name: "Calculator", action: .minimize),
                 AppRule(bundleId: "com.apple.MobileSMS", name: "Messages", action: .hide)
-            ])
+            ],
+            language: language)
     }
 
-    private static func capture(page: SettingsView.Page, height: CGFloat, dark: Bool, to url: URL) {
+    private static func capture(page: SettingsView.Page, height: CGFloat, dark: Bool, language: AppLanguage, to url: URL) {
         let model = AppModel(
-            demo: sampleConfig(),
+            demo: sampleConfig(language),
             snapshot: RuleEngine.Snapshot(status: .pausedByContact, enabled: true, openSources: ["office_door"]),
             nowPlaying: "Brave: Big Buck Bunny - YouTube")
         let window = NSWindow(
@@ -57,9 +62,10 @@ enum SnapshotRunner {
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         window.contentView = NSHostingView(rootView: SettingsView(model: model, page: page))
         window.center()
-        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
-        RunLoop.main.run(until: Date().addingTimeInterval(1.2)) // let SwiftUI lay out
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKey()
+        RunLoop.main.run(until: Date().addingTimeInterval(1.6)) // let SwiftUI lay out and the window become key
 
         guard let frameView = window.contentView?.superview,
               let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return }
