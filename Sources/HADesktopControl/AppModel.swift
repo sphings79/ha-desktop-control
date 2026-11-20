@@ -98,9 +98,12 @@ final class AppModel: ObservableObject {
         }
         let topics = Topics(deviceId: config.deviceId)
         let bridge = MQTTBridge(
-            transport: UnavailableTransport(), engine: engine, topics: topics,
+            transport: MQTTNIOTransport(), engine: engine, topics: topics,
             deviceName: Host.current().localizedName ?? "Mac")
-        bridge.onConnectionChange = { [weak self] isUp in self?.mqttConnected = isUp }
+        bridge.onConnectionChange = { [weak self] isUp in
+            self?.mqttConnected = isUp
+            if isUp { self?.lastError = nil }
+        }
         self.bridge = bridge
         do {
             let password = KeychainStore.password(for: config.broker.username)
