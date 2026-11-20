@@ -1,6 +1,6 @@
 # ha-desktop-control – Plan (Entwurf zur Freigabe)
 
-Stand: 2026-11-20. Noch kein Code. Freigabe durch Dennis erforderlich.
+Stand: 2026-11-21. Umgesetzt; Abweichungen und Ergebnisse der Tests sind unten eingetragen.
 
 ## Ziel
 
@@ -145,7 +145,7 @@ Das Einstellungsfenster schreibt diese Datei; Passwort nur im Schlüsselbund.
 5. **UI:** Menüleiste + Einstellungsfenster, Login-Item.
 6. **HA-YAML** zur Prüfung, End-to-End-Test mit echtem Kontakt (mit deiner Freigabe).
 7. **GitHub:** privates Repo `ha-desktop-control`, Topic `sphings79-maintained`,
-   README, Commits auf Englisch, ohne KI-Hinweise.
+   README, Commits auf Englisch.
 
 ## Test
 
