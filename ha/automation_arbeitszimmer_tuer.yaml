@@ -1,9 +1,12 @@
-# Review only - not deployed.
+# Deployed to Home Assistant as automation.desktop_control_arbeitszimmer_tur (created via the config API,
+# editable in the HA UI). Kept here as a copy for reference.
 # Publishes the state of "Arbeitszimmer Tür" as a RETAINED MQTT message for the macOS app.
 # Topic: ha-desktop-control/mac_mini_m4/contact/arbeitszimmer_tuer   payload: open | closed
 
 alias: Desktop control - Arbeitszimmer Tür
-description: Sends the door contact state to the macOS app (pause video, hide windows).
+description: >-
+  Sendet den Zustand des Türkontakts retained per MQTT an die macOS-App ha-desktop-control
+  (Video pausieren, Browserfenster minimieren).
 mode: queued
 max_exceeded: silent
 triggers:
@@ -14,12 +17,26 @@ triggers:
   - trigger: mqtt
     topic: homeassistant/status        # MQTT integration restarted -> resend the state
     payload: online
-conditions:
-  - condition: template
-    value_template: "{{ states('binary_sensor.arbeitszimmer_tur_contact') in ['on', 'off'] }}"
+conditions: []
 actions:
-  - action: mqtt.publish
-    data:
-      topic: ha-desktop-control/mac_mini_m4/contact/arbeitszimmer_tuer
-      payload: "{{ 'open' if is_state('binary_sensor.arbeitszimmer_tur_contact', 'on') else 'closed' }}"
-      retain: true
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.arbeitszimmer_tur_contact
+            state: "on"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: ha-desktop-control/mac_mini_m4/contact/arbeitszimmer_tuer
+              payload: open
+              retain: true
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.arbeitszimmer_tur_contact
+            state: "off"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: ha-desktop-control/mac_mini_m4/contact/arbeitszimmer_tuer
+              payload: closed
+              retain: true

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import DesktopControlCore
 import ServiceManagement
 import SwiftUI
@@ -20,6 +21,7 @@ final class AppModel: ObservableObject {
     private var bridge: MQTTBridge?
     private var poller: Task<Void, Never>?
     private var permissionWatcher: Task<Void, Never>?
+    private var autosave: AnyCancellable?
 
     init() {
         let loaded = ConfigStore().load()
@@ -42,16 +44,29 @@ final class AppModel: ObservableObject {
             self?.snapshot = snapshot
         }
 
+        // Rules, apps and browser choices are saved automatically; only broker changes
+        // need the explicit "save & connect" because they reconnect.
+        autosave = $config
+            .dropFirst()
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.persist() }
+
         Task { await connect() }
         startPoller()
         startPermissionWatcher()
     }
 
+    private func persist() {
+        do { try store.save(config) } catch { lastError = "Saving config failed: \(error)" }
+        engine.config = config
+    }
+
+    func dismissError() { lastError = nil }
+
     // MARK: - Settings
 
     func save(password: String?) {
-        do { try store.save(config) } catch { lastError = "Saving config failed: \(error)" }
-        engine.config = config
+        persist()
         if let password { KeychainStore.setPassword(password, for: config.broker.username) }
         Task {
             await bridge?.stop()
