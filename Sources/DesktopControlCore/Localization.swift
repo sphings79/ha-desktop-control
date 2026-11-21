@@ -200,6 +200,42 @@ public enum L10n {
         "Home Assistant automation: popup with camera image": "Home-Assistant-Automation: Popup mit Kamerabild",
         "Trigger entity": "Auslösende Entität",
         "Camera entity": "Kamera-Entität",
+        "Home Assistant automation: reaction to a button click": "Home-Assistant-Automation: Reaktion auf einen Button-Klick",
+        "Popup id": "Popup-ID",
+        "Action id": "Aktions-ID",
+        "Add `sticky`, `level` (info, warning, critical), `id`, `url` and up to three `actions` with `id` and `label` to the popup message. The click is sent to this topic.":
+            "Ergänze in der Popup-Nachricht `sticky`, `level` (info, warning, critical), `id`, `url` und bis zu drei `actions` mit `id` und `label`. Der Klick wird an dieses Topic gesendet.",
+        "Open live view": "Live-Ansicht öffnen",
+        "Respect Do Not Disturb": "„Nicht stören“ beachten",
+        "Skips popups while a Focus is on, except critical ones. macOS asks for permission once.":
+            "Überspringt Popups, solange ein Fokus aktiv ist, außer kritische. macOS fragt einmalig nach der Freigabe.",
+        // Mac
+        "Mac": "Mac",
+        "Sensors": "Sensoren",
+        "Camera and microphone in use (yes or no only), idle time and screen lock are sent to Home Assistant.":
+            "Kamera und Mikrofon in Benutzung (nur Ja oder Nein), Inaktivität und Bildschirmsperre gehen an Home Assistant.",
+        "Share the name of the frontmost app": "Namen der aktiven App weitergeben",
+        "Off by default. It shows which app you are using.": "Standardmäßig aus. Es zeigt, welche App du gerade nutzt.",
+        "Control from Home Assistant": "Steuerung durch Home Assistant",
+        "Sleep": "Ruhezustand",
+        "Display off": "Display aus",
+        "Lock screen": "Bildschirm sperren",
+        "Each command is off by default and shows up in Home Assistant as a button only while it is on.":
+            "Jeder Befehl ist standardmäßig aus und erscheint nur dann als Button in Home Assistant, wenn er an ist.",
+        "Commands": "Befehle",
+        "Allow commands": "Befehle erlauben",
+        "Home Assistant can only press the button of a command listed here. Nothing from MQTT is put into the command line. Commands run with your user rights and are stopped after 30 seconds.":
+            "Home Assistant kann nur den Button eines hier aufgeführten Befehls drücken. Aus MQTT wird nichts in die Befehlszeile eingesetzt. Befehle laufen mit deinen Benutzerrechten und werden nach 30 Sekunden abgebrochen.",
+        "Shell command": "Shell-Befehl",
+        "Shortcut": "Kurzbefehl",
+        "Name": "Name",
+        "Command line": "Befehlszeile",
+        "Shortcut name": "Name des Kurzbefehls",
+        "Add command": "Befehl hinzufügen",
+        "Add this command?": "Diesen Befehl hinzufügen?",
+        "It runs with your user rights whenever Home Assistant presses its button:":
+            "Er läuft mit deinen Benutzerrechten, sobald Home Assistant seinen Button drückt:",
+        "Cancel": "Abbrechen",
         "Optional fields in the message: duration (seconds), sound (true, false or a system sound name) and pause (true or false).":
             "Optionale Felder in der Nachricht: duration (Sekunden), sound (true, false oder Name eines Systemtons) und pause (true oder false)."
     ]

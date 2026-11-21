@@ -56,4 +56,38 @@ final class PopupTests: XCTestCase {
         XCTAssertTrue(yaml.contains("state_attr('camera.einfahrt', 'entity_picture')"))
         XCTAssertFalse(yaml.contains("injected"))
     }
+
+    func testParseStackingLevelActionsAndLimits() {
+        let r = PopupRequest.parse("""
+        {"id":"window-kids","level":"critical","sticky":true,"url":"/dashboard-home/home",
+         "actions":[{"id":"ignore","label":"Ignore"},{"id":"bad id","label":"x"},{"id":"a","label":""},
+                    {"id":"b","label":"B"},{"id":"c","label":"C"},{"id":"d","label":"D"}]}
+        """)
+        XCTAssertEqual(r?.id, "window-kids")
+        XCTAssertEqual(r?.level, .critical)
+        XCTAssertEqual(r?.sticky, true)
+        XCTAssertEqual(r?.actions.map(\.id), ["ignore", "b", "c"]) // invalid entries dropped, max 3
+        XCTAssertNil(r?.autoCloseSeconds(config: PopupConfig()))
+        XCTAssertEqual(PopupRequest().autoCloseSeconds(config: PopupConfig()), 30)
+        XCTAssertEqual(PopupRequest.parse(#"{"level":"nope","id":"a b"}"#)?.level, .info)
+        XCTAssertNil(PopupRequest.parse(#"{"id":"a b"}"#)?.id)
+    }
+
+    func testOpenURLStaysOnTheHomeAssistantHost() {
+        func open(_ url: String) -> String? { PopupRequest(url: url).openURL(base: base)?.absoluteString }
+        XCTAssertEqual(open("/dashboard-home/home#haustuer"), "http://192.168.1.10:8123/dashboard-home/home#haustuer")
+        XCTAssertEqual(open("http://192.168.1.10:8123/lovelace/0"), "http://192.168.1.10:8123/lovelace/0")
+        XCTAssertNil(open("https://evil.example/x"))
+        XCTAssertNil(open("//evil.example/x"))
+        XCTAssertNil(open("file:///etc/passwd"))
+        XCTAssertNil(open("http://192.168.1.10:9999/x"))
+        XCTAssertNil(PopupRequest(url: "/x").openURL(base: ""))
+    }
+
+    func testActionYAMLRejectsUnsafeIds() {
+        let yaml = AutomationExample.popupActionYAML(deviceId: "mini", popupId: "x'\nbad: 1", action: "ok")
+        XCTAssertTrue(yaml.contains("topic: ha-desktop-control/mini/action"))
+        XCTAssertTrue(yaml.contains("'window-kids'"))
+        XCTAssertFalse(yaml.contains("bad: 1"))
+    }
 }

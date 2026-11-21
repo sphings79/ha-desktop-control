@@ -8,14 +8,18 @@ public struct PopupConfig: Codable, Equatable, Sendable {
     public var sound: String
     /// Pause playing media while the popup is shown (and resume afterwards).
     public var pauseMedia: Bool
+    /// Skip popups while a macOS Focus (Do Not Disturb) is on. Critical popups still show.
+    public var respectDoNotDisturb: Bool
 
     public static let fallbackSound = "Glass"
 
-    public init(enabled: Bool = true, durationSeconds: Double = 30, sound: String = PopupConfig.fallbackSound, pauseMedia: Bool = false) {
+    public init(enabled: Bool = true, durationSeconds: Double = 30, sound: String = PopupConfig.fallbackSound,
+                pauseMedia: Bool = false, respectDoNotDisturb: Bool = false) {
         self.enabled = enabled
         self.durationSeconds = durationSeconds
         self.sound = sound
         self.pauseMedia = pauseMedia
+        self.respectDoNotDisturb = respectDoNotDisturb
     }
 
     public init(from decoder: Decoder) throws {
@@ -25,6 +29,7 @@ public struct PopupConfig: Codable, Equatable, Sendable {
         durationSeconds = try c.decodeIfPresent(Double.self, forKey: .durationSeconds) ?? d.durationSeconds
         sound = try c.decodeIfPresent(String.self, forKey: .sound) ?? d.sound
         pauseMedia = try c.decodeIfPresent(Bool.self, forKey: .pauseMedia) ?? d.pauseMedia
+        respectDoNotDisturb = try c.decodeIfPresent(Bool.self, forKey: .respectDoNotDisturb) ?? d.respectDoNotDisturb
     }
 }
 
@@ -44,21 +49,48 @@ public struct PopupRequest: Equatable, Sendable {
         case named(String)
     }
 
+    public enum Level: String, Sendable {
+        case info, warning, critical
+    }
+
+    public struct Action: Equatable, Sendable {
+        public var id: String
+        public var label: String
+        public init(id: String, label: String) { self.id = id; self.label = label }
+    }
+
     public var title: String
     public var image: String?
     public var duration: Double?
     public var sound: Sound
     public var pause: Bool?
+    /// A new popup with the same id replaces the open one.
+    public var id: String?
+    public var level: Level
+    /// Opens this address (on the Home Assistant host) from a button, e.g. a live view.
+    public var url: String?
+    /// Stays until it is closed or an action button is clicked.
+    public var sticky: Bool
+    public var actions: [Action]
+
+    public static let maxActions = 3
 
     public static let allowedImagePrefixes = ["/api/camera_proxy/", "/local/"]
     public static let durationRange: ClosedRange<Double> = 3...300
 
-    public init(title: String = "", image: String? = nil, duration: Double? = nil, sound: Sound = .setting, pause: Bool? = nil) {
+    public init(title: String = "", image: String? = nil, duration: Double? = nil, sound: Sound = .setting,
+                pause: Bool? = nil, id: String? = nil, level: Level = .info, url: String? = nil,
+                sticky: Bool = false, actions: [Action] = []) {
         self.title = title
         self.image = image
         self.duration = duration
         self.sound = sound
         self.pause = pause
+        self.id = id
+        self.level = level
+        self.url = url
+        self.sticky = sticky
+        self.actions = actions
     }
 
     /// Returns nil for anything that is not a JSON object. An empty payload is a plain popup.
@@ -80,6 +112,21 @@ public struct PopupRequest: Equatable, Sendable {
         default: break
         }
         if let pause = object["pause"] as? Bool { request.pause = pause }
+        if let id = object["id"] as? String, id.range(of: #"^[A-Za-z0-9_-]{1,60}$"#, options: .regularExpression) != nil {
+            request.id = id
+        }
+        if let level = object["level"] as? String, let parsed = Level(rawValue: level) { request.level = parsed }
+        if let url = object["url"] as? String, !url.isEmpty { request.url = url }
+        if let sticky = object["sticky"] as? Bool { request.sticky = sticky }
+        if let list = object["actions"] as? [[String: Any]] {
+            request.actions = list.compactMap { entry in
+                guard let id = entry["id"] as? String, let label = entry["label"] as? String,
+                      id.range(of: #"^[A-Za-z0-9_-]{1,40}$"#, options: .regularExpression) != nil,
+                      !label.isEmpty else { return nil }
+                return Action(id: id, label: String(label.prefix(30)))
+            }
+            request.actions = Array(request.actions.prefix(maxActions))
+        }
         return request
     }
 
@@ -103,6 +150,26 @@ public struct PopupRequest: Equatable, Sendable {
         components.path = String(pieces[0])
         components.query = pieces.count > 1 ? String(pieces[1]) : nil
         return components.url
+    }
+
+    /// `url` resolved against the Home Assistant address; only the same host and port are allowed.
+    public func openURL(base: String) -> URL? {
+        guard let url, let baseURL = URL(string: base.trimmingCharacters(in: .whitespaces)),
+              let scheme = baseURL.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = baseURL.host else { return nil }
+        let target: URL?
+        if url.hasPrefix("/") && !url.hasPrefix("//") {
+            target = URL(string: url, relativeTo: baseURL)?.absoluteURL
+        } else {
+            target = URL(string: url)
+        }
+        guard let target, target.scheme?.lowercased() == scheme, target.host == host, target.port == baseURL.port else { return nil }
+        return target
+    }
+
+    /// Seconds until the popup closes by itself; nil for sticky popups.
+    public func autoCloseSeconds(config: PopupConfig) -> Double? {
+        sticky ? nil : displaySeconds(config: config)
     }
 
     /// The system sound to play, or nil for silence.
@@ -147,6 +214,31 @@ extension AutomationExample {
                   'duration': 30,
                   'sound': true
                 } | tojson }}
+
+        """
+    }
+
+    /// Home Assistant automation that reacts to a click on a popup action button.
+    public static func popupActionYAML(deviceId: String, popupId: String = "window-kids", action: String = "ignore") -> String {
+        let valid = #"^[A-Za-z0-9_-]{1,60}$"#
+        let popupId = popupId.range(of: valid, options: .regularExpression) != nil ? popupId : "window-kids"
+        let action = action.range(of: valid, options: .regularExpression) != nil ? action : "ignore"
+        return """
+        alias: Desktop popup - \(popupId) / \(action)
+        description: Runs when "\(action)" is clicked in the popup "\(popupId)" on the Mac.
+        mode: queued
+        triggers:
+          - trigger: mqtt
+            topic: \(Topics(deviceId: deviceId).action)
+        conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.payload_json.id == '\(popupId)' and trigger.payload_json.action == '\(action)' }}
+        actions:
+          - action: logbook.log
+            data:
+              name: Desktop popup
+              message: Button \(action) was clicked in \(popupId)
 
         """
     }

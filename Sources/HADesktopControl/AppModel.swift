@@ -1,4 +1,5 @@
 import AppKit
+import Intents
 import Combine
 import DesktopControlCore
 import ServiceManagement
@@ -169,13 +170,24 @@ final class AppModel: ObservableObject {
 
     func showPopup(_ request: PopupRequest) {
         guard config.popup.enabled else { return }
-        popup.onDismiss = { [weak self] in self?.popupClosed() }
-        popup.show(
+        if config.popup.respectDoNotDisturb, request.level != .critical, Self.focusIsOn() { return }
+        popup.onDismiss = { [weak self] item in self?.popupClosed(item) }
+        popup.onAction = { [weak self] item, action in
+            Task { await self?.bridge?.publishAction(popupId: item.spec.id ?? "", action: action) }
+        }
+        let pauses = request.shouldPause(config: config.popup)
+        popup.show(PopupSpec(
+            id: request.id,
             title: request.title,
             imageURL: request.imageURL(base: config.haBaseURL),
-            seconds: request.displaySeconds(config: config.popup))
+            seconds: request.autoCloseSeconds(config: config.popup),
+            level: request.level,
+            actions: request.actions,
+            openURL: request.openURL(base: config.haBaseURL),
+            openLabel: t("Open live view"),
+            pausesMedia: pauses))
         if let name = request.soundName(config: config.popup) { NSSound(named: NSSound.Name(name))?.play() }
-        if request.shouldPause(config: config.popup), engine.status == .idle, !popupPaused {
+        if pauses, engine.status == .idle, !popupPaused {
             popupPaused = true
             Task { await engine.manualPause() }
         }
@@ -185,12 +197,23 @@ final class AppModel: ObservableObject {
         showPopup(PopupRequest(title: t("Test popup"), duration: 8, sound: .on))
     }
 
-    private func popupClosed() {
-        guard popupPaused else { return }
+    private func popupClosed(_ item: PopupItem) {
+        guard popupPaused, !popup.items.contains(where: { $0.spec.pausesMedia }) else { return }
         popupPaused = false
         Task {
             if engine.openSources.isEmpty { await engine.manualRestore() }
         }
+    }
+
+    /// True while a macOS Focus (Do Not Disturb) is on and the user allowed the app to see it.
+    static func focusIsOn() -> Bool {
+        let center = INFocusStatusCenter.default
+        return center.authorizationStatus == .authorized && (center.focusStatus.isFocused ?? false)
+    }
+
+    func setRespectDoNotDisturb(_ enabled: Bool) {
+        config.popup.respectDoNotDisturb = enabled
+        if enabled { INFocusStatusCenter.default.requestAuthorization { _ in } }
     }
 
     func previewSound(_ name: String) {
@@ -199,6 +222,10 @@ final class AppModel: ObservableObject {
 
     func popupYAML(trigger: String, camera: String) -> String {
         AutomationExample.popupYAML(deviceId: config.deviceId, trigger: trigger, camera: camera, title: t("Doorbell"))
+    }
+
+    func popupActionYAML(popupId: String, action: String) -> String {
+        AutomationExample.popupActionYAML(deviceId: config.deviceId, popupId: popupId, action: action)
     }
 
     func copyPopupYAML(trigger: String, camera: String) {

@@ -8,7 +8,7 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
 
     enum Page: String, CaseIterable, Identifiable {
-        case overview, contacts, apps, popup, mqtt, general
+        case overview, contacts, apps, popup, mac, mqtt, general
         var id: String { rawValue }
         var titleKey: String {
             switch self {
@@ -16,6 +16,7 @@ struct SettingsView: View {
             case .contacts: return "Triggers"
             case .apps: return "Programs"
             case .popup: return "Popup"
+            case .mac: return "Mac"
             case .mqtt: return "MQTT"
             case .general: return "General"
             }
@@ -26,6 +27,7 @@ struct SettingsView: View {
             case .contacts: return "door.left.hand.open"
             case .apps: return "macwindow.on.rectangle"
             case .popup: return "bell.badge"
+            case .mac: return "macbook.and.iphone"
             case .mqtt: return "network"
             case .general: return "gearshape"
             }
@@ -53,6 +55,7 @@ struct SettingsView: View {
                     case .contacts: ContactsPage(model: model)
                     case .apps: AppsPage(model: model)
                     case .popup: PopupPage(model: model)
+                    case .mac: MacPage(model: model)
                     case .mqtt: MQTTPage(model: model)
                     case .general: GeneralPage(model: model)
                     }
@@ -482,6 +485,10 @@ private struct PopupPage: View {
                     Spacer()
                 }
                 Toggle(model.t("Pause video while the popup is shown"), isOn: $model.config.popup.pauseMedia)
+                Toggle(model.t("Respect Do Not Disturb"), isOn: Binding(
+                    get: { model.config.popup.respectDoNotDisturb },
+                    set: { model.setRespectDoNotDisturb($0) }))
+                Hint(model.t("Skips popups while a Focus is on, except critical ones. macOS asks for permission once."))
                 Hint(model.t("Video resumes when the popup closes. Home Assistant can override sound and pause for each popup."))
                 HStack {
                     Spacer()
@@ -495,6 +502,8 @@ private struct PopupPage: View {
                     .font(.system(.body, design: .monospaced))
                 Hint(model.t("Home Assistant address, used only to load the camera image of a popup. The image link comes from your automation with a short-lived token, so no password is stored here. HTTPS needs a valid certificate."))
             }
+
+            PopupActionYAML(model: model)
 
             Card(title: model.t("Home Assistant automation: popup with camera image"), symbol: "doc.text") {
                 TextField(model.t("Trigger entity"), text: $trigger)
@@ -521,6 +530,108 @@ private struct PopupPage: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private struct PopupActionYAML: View {
+    @ObservedObject var model: AppModel
+    @State private var popupId = "window-kids"
+    @State private var action = "ignore"
+
+    var body: some View {
+        Card(title: model.t("Home Assistant automation: reaction to a button click"), symbol: "hand.tap") {
+            HStack {
+                TextField(model.t("Popup id"), text: $popupId).textFieldStyle(.roundedBorder)
+                TextField(model.t("Action id"), text: $action).textFieldStyle(.roundedBorder)
+            }
+            .font(.system(.body, design: .monospaced))
+            ScrollView {
+                Text(model.popupActionYAML(popupId: popupId, action: action))
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(height: 170)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
+            Hint(model.t("Add `sticky`, `level` (info, warning, critical), `id`, `url` and up to three `actions` with `id` and `label` to the popup message. The click is sent to this topic."))
+        }
+    }
+}
+
+// MARK: - Mac
+
+private struct MacPage: View {
+    @ObservedObject var model: AppModel
+    @State private var name = ""
+    @State private var kind: CustomCommand.Kind = .shell
+    @State private var commandText = ""
+    @State private var pending: CustomCommand?
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Card(title: model.t("Sensors"), symbol: "sensor") {
+                Hint(model.t("Camera and microphone in use (yes or no only), idle time and screen lock are sent to Home Assistant."))
+                Toggle(model.t("Share the name of the frontmost app"), isOn: $model.config.sensors.activeApp)
+                Hint(model.t("Off by default. It shows which app you are using."))
+            }
+
+            Card(title: model.t("Control from Home Assistant"), symbol: "power") {
+                Toggle(model.t("Sleep"), isOn: $model.config.macControl.sleep)
+                Toggle(model.t("Display off"), isOn: $model.config.macControl.displayOff)
+                Toggle(model.t("Lock screen"), isOn: $model.config.macControl.lock)
+                Hint(model.t("Each command is off by default and shows up in Home Assistant as a button only while it is on."))
+            }
+
+            Card(title: model.t("Commands"), symbol: "terminal") {
+                Toggle(model.t("Allow commands"), isOn: $model.config.commandsEnabled)
+                Hint(model.t("Home Assistant can only press the button of a command listed here. Nothing from MQTT is put into the command line. Commands run with your user rights and are stopped after 30 seconds."))
+                ForEach(model.config.commands) { command in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(command.name).font(.headline)
+                            Text("\(command.kind == .shell ? model.t("Shell command") : model.t("Shortcut")): \(command.command)")
+                                .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            model.config.commands.removeAll { $0.id == command.id }
+                        } label: { Image(systemName: "trash") }.buttonStyle(.borderless)
+                    }
+                    Divider()
+                }
+                TextField(model.t("Name"), text: $name).textFieldStyle(.roundedBorder)
+                Picker("", selection: $kind) {
+                    Text(model.t("Shell command")).tag(CustomCommand.Kind.shell)
+                    Text(model.t("Shortcut")).tag(CustomCommand.Kind.shortcut)
+                }
+                .pickerStyle(.segmented).labelsHidden()
+                TextField(kind == .shell ? model.t("Command line") : model.t("Shortcut name"), text: $commandText)
+                    .textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
+                HStack {
+                    Spacer()
+                    Button(model.t("Add command")) {
+                        let candidate = CustomCommand(
+                            id: CustomCommand.makeId(name: name, existing: model.config.commands),
+                            name: name.trimmingCharacters(in: .whitespacesAndNewlines), kind: kind,
+                            command: commandText.trimmingCharacters(in: .whitespacesAndNewlines))
+                        if candidate.isValid { pending = candidate }
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || commandText.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .alert(model.t("Add this command?"), isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })) {
+            Button(model.t("Add command")) {
+                if let pending { model.config.commands.append(pending) }
+                pending = nil
+                name = ""
+                commandText = ""
+            }
+            Button(model.t("Cancel"), role: .cancel) { pending = nil }
+        } message: {
+            Text("\(model.t("It runs with your user rights whenever Home Assistant presses its button:"))\n\n\(pending?.command ?? "")")
         }
     }
 }

@@ -31,10 +31,13 @@ struct HADesktopControlApp: App {
             let base = CommandLine.arguments[index + 1], path = CommandLine.arguments[index + 2]
             NSApplication.shared.setActivationPolicy(.accessory)
             let controller = PopupController()
-            controller.show(title: "Selftest", imageURL: PopupRequest(image: path).imageURL(base: base), seconds: 8)
+            controller.show(PopupSpec(
+                id: nil, title: "Selftest", imageURL: PopupRequest(image: path).imageURL(base: base), seconds: 8,
+                level: .warning, actions: [PopupRequest.Action(id: "ok", label: "OK")], openURL: nil,
+                openLabel: "Open", pausesMedia: false))
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                let size = controller.state.image?.size
-                print("visible: \(controller.isVisible), image: \(size.map { "\(Int($0.width))x\(Int($0.height))" } ?? "none"), failed: \(controller.state.imageFailed), frame: \(String(describing: NSApp.windows.first?.frame))")
+                let size = controller.items.first?.image?.size
+                print("visible: \(controller.isVisible), items: \(controller.items.count), image: \(size.map { "\(Int($0.width))x\(Int($0.height))" } ?? "none"), failed: \(controller.items.first?.imageFailed ?? true), frame: \(String(describing: NSApp.windows.first?.frame))")
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 9) { exit(0) }
             NSApplication.shared.run()

@@ -33,6 +33,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key><true/>
     <key>NSAppTransportSecurity</key>
     <dict><key>NSAllowsLocalNetworking</key><true/></dict>
+    <key>NSFocusStatusUsageDescription</key>
+    <string>HA Desktop Control can skip popups while a Focus (Do Not Disturb) is on.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>HA Desktop Control pauses video playback in your browsers when a Home Assistant contact opens.</string>
 </dict>

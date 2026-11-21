@@ -40,6 +40,8 @@ Home Assistant weiß von der Tür, vom Fenster, von der Bewegung im Flur und von
 - [Installation](#installation)
 - [Einrichtung](#einrichtung)
 - [Einstellungen im Überblick](#einstellungen-im-überblick)
+- [Popup mit Kamerabild](#popup-mit-kamerabild)
+- [Mac-Sensoren, Steuerung und Befehle](#mac-sensoren-steuerung-und-befehle)
 - [MQTT-Topics](#mqtt-topics)
 - [Datenschutz und Sicherheit](#datenschutz-und-sicherheit)
 - [Fehlersuche](#fehlersuche)
@@ -228,7 +230,32 @@ Die Automation veröffentlicht (nicht retained) an `ha-desktop-control/<device_i
 {"title": "Klingel", "image": "/api/camera_proxy/camera.front_door?token=…", "duration": 30, "sound": true, "pause": false}
 ```
 
-Alle Felder sind optional. `sound` ist `true` (der eingestellte Ton), `false` (still) oder der Name eines macOS-Systemtons wie `Ping`; `pause` überschreibt die App-Einstellung; `duration` in Sekunden (3–300). Die App lädt nur Bilder unter `/api/camera_proxy/` und `/local/` vom eingetragenen Home-Assistant-Host. HTTPS braucht ein gültiges Zertifikat.
+Alle Felder sind optional:
+
+| Feld | Bedeutung |
+|---|---|
+| `title` | Überschrift des Popups |
+| `image` | Kamerabild-Pfad aus `entity_picture` (nur `/api/camera_proxy/` und `/local/` auf deinem Home-Assistant-Host) |
+| `duration` | Sekunden bis zum Schließen (3–300) |
+| `sticky` | `true`: bleibt, bis es geschlossen oder ein Button geklickt wird |
+| `sound` | `true` (eingestellter Ton), `false` (still) oder der Name eines macOS-Systemtons wie `Ping` |
+| `pause` | Überschreibt die App-Einstellung zum Pausieren von Videos |
+| `level` | `info` (Standard), `warning` oder `critical`; bestimmt Farbe und Symbol, kritische Popups ignorieren „Nicht stören“ |
+| `id` | Ein neues Popup mit gleicher `id` ersetzt das offene. Bis zu drei Popups werden gestapelt |
+| `url` | Fügt einen Button *Live-Ansicht öffnen* hinzu; es werden nur Adressen auf deinem Home-Assistant-Host geöffnet |
+| `actions` | Bis zu drei Buttons `[{"id": "ignore", "label": "Ignorieren"}]`. Ein Klick wird an `…/action` als `{"id": "<Popup-ID>", "action": "ignore"}` veröffentlicht |
+
+Das Kamera-Token im Bildlink wechselt alle paar Minuten, bei sehr langen Popups kann das Bild deshalb irgendwann nicht mehr aktualisiert werden. Mit *„Nicht stören“ beachten* (standardmäßig aus) werden Popups übersprungen, solange ein Fokus aktiv ist; macOS fragt einmalig nach der Freigabe.
+
+## Mac-Sensoren, Steuerung und Befehle
+
+Die Seite *Mac* in den Einstellungen ergänzt das Home-Assistant-Gerät. Alles, was etwas verrät oder verändert, ist **standardmäßig aus**.
+
+**Sensoren** (immer an, nichts Sensibles): *Kamera in Benutzung*, *Mikrofon in Benutzung* (nur Ja oder Nein, nie welche App), *Inaktivität* in Sekunden, *Bildschirm gesperrt*. Optional und standardmäßig aus: *Aktive App* (Name der vordersten App). Nutze sie als Bedingung, z. B. um in einem Call kein Popup anzuzeigen oder nichts zu pausieren.
+
+**Steuerung durch Home Assistant** (jeweils standardmäßig aus, der Button erscheint nur, solange er an ist): *Ruhezustand*, *Display aus*, *Bildschirm sperren*. Das Sperren nutzt den Aufruf hinter dem Sperren-Menüpunkt von macOS, ein privates Symbol, das Apple ändern kann. Fehlt es, wird stattdessen das Display ausgeschaltet.
+
+**Eigene Befehle**: Lege in der App benannte Befehle an, entweder ein Shell-Befehl oder ein macOS-Kurzbefehl. Jeder wird ein Button in Home Assistant, dazu ein Sensor *Letzter Befehl* (`ok`, `error`, `timeout` oder `busy`). Home Assistant kann nur den Button eines in der App aufgeführten Befehls drücken. Aus MQTT wird nie etwas in die Befehlszeile eingesetzt, es gibt keine Parameter, es läuft immer nur ein Befehl und jeder wird nach 30 Sekunden abgebrochen. Der Hauptschalter *Befehle erlauben* ist standardmäßig aus, und die App zeigt vor dem Anlegen den vollständigen Befehl zur Bestätigung. Befehle laufen mit deinen Benutzerrechten, sichere deshalb deinen MQTT-Broker mit Benutzer und Passwort und, wenn möglich, mit Topic-Berechtigungen.
 
 ## MQTT-Topics
 
@@ -241,6 +268,15 @@ Präfix: `ha-desktop-control/<device_id>`
 | `…/cmd/pause_media` | HA → App | `PRESS` | nein |
 | `…/cmd/restore` | HA → App | `PRESS` | nein |
 | `…/popup` | HA → App | JSON, siehe [Popup](#popup-mit-kamerabild) | nein |
+| `…/sensor/camera_in_use` | App → HA | `ON` / `OFF` | ja |
+| `…/sensor/microphone_in_use` | App → HA | `ON` / `OFF` | ja |
+| `…/sensor/screen_locked` | App → HA | `ON` / `OFF` | ja |
+| `…/sensor/idle_seconds` | App → HA | Sekunden ohne Eingabe | ja |
+| `…/sensor/active_app` | App → HA | App-Name (nur wenn aktiviert) | ja |
+| `…/cmd/mac_sleep`, `…/cmd/mac_display_off`, `…/cmd/mac_lock` | HA → App | `PRESS` (nur wenn aktiviert) | nein |
+| `…/cmd/run_<command>` | HA → App | `PRESS` (nur für in der App angelegte Befehle) | nein |
+| `…/last_command` | App → HA | `ok` / `error` / `timeout` / `busy` | ja |
+| `…/action` | App → HA | `{"id": "…", "action": "…"}` nach einem Button-Klick im Popup | nein |
 | `…/availability` | App → HA | `online` / `offline` (Last Will) | ja |
 | `…/enabled` | App → HA | `ON` / `OFF` | ja |
 | `…/status` | App → HA | `idle` / `paused_by_contact` | ja |
@@ -259,7 +295,7 @@ Das Gerät stellt auch die Audioausgabe des Macs bereit: ein *Select* zum Wechse
 
 ## Datenschutz und Sicherheit
 
-- Die App spricht mit deinem eigenen MQTT-Broker. Es gibt keinen Cloud-Dienst und keine Telemetrie. Die einzige weitere Verbindung ist die optionale tägliche Update-Prüfung: eine Anfrage an `api.github.com`, bei der GitHub deine IP-Adresse und die App-Version sieht. Unter *Allgemein* lässt sie sich abschalten.
+- Die App spricht mit deinem eigenen MQTT-Broker. Es gibt keinen Cloud-Dienst und keine Telemetrie. Die einzige weitere Verbindung ist die optionale tägliche Update-Prüfung: eine Anfrage an `api.github.com`, bei der GitHub deine IP-Adresse und die App-Version sieht. Unter *Allgemein* lässt sie sich abschalten. Nutzt du das Popup-Bild, lädt die App außerdem Bilder von der eingetragenen Home-Assistant-Adresse.
 - Das Broker-Passwort liegt im macOS-Schlüsselbund, nie in der Konfigurationsdatei.
 - Die Konfigurationsdatei (`~/Library/Application Support/ha-desktop-control/config.json`) enthält keine Geheimnisse.
 - Der Sensor „Läuft gerade“ sendet den Titel des spielenden Browser-Tabs an deinen Broker.

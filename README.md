@@ -40,6 +40,8 @@ Home Assistant knows about the door, the window, the motion in the hallway, the 
 - [Install](#install)
 - [Setup](#setup)
 - [Settings reference](#settings-reference)
+- [Popup with camera image](#popup-with-camera-image)
+- [Mac sensors, control and commands](#mac-sensors-control-and-commands)
 - [MQTT topics](#mqtt-topics)
 - [Privacy and security](#privacy-and-security)
 - [Troubleshooting](#troubleshooting)
@@ -228,7 +230,32 @@ The automation publishes (not retained) to `ha-desktop-control/<device_id>/popup
 {"title": "Doorbell", "image": "/api/camera_proxy/camera.front_door?token=…", "duration": 30, "sound": true, "pause": false}
 ```
 
-All fields are optional. `sound` is `true` (the configured sound), `false` (silent) or the name of a macOS system sound such as `Ping`; `pause` overrides the app setting; `duration` is in seconds (3–300). The app only loads images from `/api/camera_proxy/` and `/local/` on the configured Home Assistant host. HTTPS needs a valid certificate.
+All fields are optional:
+
+| Field | Meaning |
+|---|---|
+| `title` | Heading of the popup |
+| `image` | Camera picture path from `entity_picture` (only `/api/camera_proxy/` and `/local/` on your Home Assistant host) |
+| `duration` | Seconds until it closes (3–300) |
+| `sticky` | `true`: stays until it is closed or a button is clicked |
+| `sound` | `true` (configured sound), `false` (silent) or the name of a macOS system sound such as `Ping` |
+| `pause` | Overrides the app setting for pausing video |
+| `level` | `info` (default), `warning` or `critical`; sets the colour and icon, and critical popups ignore Do Not Disturb |
+| `id` | A new popup with the same `id` replaces the open one. Up to three popups are stacked |
+| `url` | Adds an *Open live view* button; only addresses on your Home Assistant host are opened |
+| `actions` | Up to three buttons `[{"id": "ignore", "label": "Ignore"}]`. A click is published to `…/action` as `{"id": "<popup id>", "action": "ignore"}` |
+
+The camera token in the image link rotates every few minutes, so very long popups may stop updating the picture. With *Respect Do Not Disturb* (off by default) popups are skipped while a Focus is on; macOS asks for permission once.
+
+## Mac sensors, control and commands
+
+The *Mac* page in the settings adds more to the Home Assistant device. Everything that reveals or changes something is **off by default**.
+
+**Sensors** (always on, nothing sensitive): *camera in use*, *microphone in use* (yes or no only, never which app), *idle time* in seconds, *screen locked*. Optional and off by default: *active app* (the name of the frontmost app). Use them as conditions, for example to skip a popup or a pause during a call.
+
+**Control from Home Assistant** (each one off by default, a button appears only while it is on): *sleep*, *display off*, *lock screen*. Locking uses the call behind the macOS lock menu item, a private symbol that Apple may change. If it is missing, the display is switched off instead.
+
+**Custom commands**: define named commands in the app, either a shell command or a macOS Shortcut. Each one becomes a button in Home Assistant, plus a *last command* sensor (`ok`, `error`, `timeout` or `busy`). Home Assistant can only press the button of a command listed in the app. Nothing from MQTT is ever put into the command line, there are no parameters, one command runs at a time and each is stopped after 30 seconds. The master switch *Allow commands* is off by default, and the app shows the full command for confirmation before it is added. Commands run with your user rights, so protect your MQTT broker with a user and a password and, if you can, topic permissions.
 
 ## MQTT topics
 
@@ -241,6 +268,15 @@ Prefix: `ha-desktop-control/<device_id>`
 | `…/cmd/pause_media` | HA → app | `PRESS` | no |
 | `…/cmd/restore` | HA → app | `PRESS` | no |
 | `…/popup` | HA → app | JSON, see [Popup](#popup-with-camera-image) | no |
+| `…/sensor/camera_in_use` | app → HA | `ON` / `OFF` | yes |
+| `…/sensor/microphone_in_use` | app → HA | `ON` / `OFF` | yes |
+| `…/sensor/screen_locked` | app → HA | `ON` / `OFF` | yes |
+| `…/sensor/idle_seconds` | app → HA | seconds without input | yes |
+| `…/sensor/active_app` | app → HA | app name (only if enabled) | yes |
+| `…/cmd/mac_sleep`, `…/cmd/mac_display_off`, `…/cmd/mac_lock` | HA → app | `PRESS` (only if enabled) | no |
+| `…/cmd/run_<command>` | HA → app | `PRESS` (only for commands defined in the app) | no |
+| `…/last_command` | app → HA | `ok` / `error` / `timeout` / `busy` | yes |
+| `…/action` | app → HA | `{"id": "…", "action": "…"}` after a popup button click | no |
 | `…/availability` | app → HA | `online` / `offline` (last will) | yes |
 | `…/enabled` | app → HA | `ON` / `OFF` | yes |
 | `…/status` | app → HA | `idle` / `paused_by_contact` | yes |
@@ -259,7 +295,7 @@ The device also exposes the Mac's audio output: a *select* to switch the output 
 
 ## Privacy and security
 
-- The app talks to your own MQTT broker. There is no cloud service and no telemetry. The only other connection is the optional daily update check: one request to `api.github.com` that shows GitHub your IP address and the app version. Switch it off under *General*.
+- The app talks to your own MQTT broker. There is no cloud service and no telemetry. The only other connection is the optional daily update check: one request to `api.github.com` that shows GitHub your IP address and the app version. Switch it off under *General*. If you use the popup image, the app also loads pictures from the Home Assistant address you entered.
 - The broker password lives in the macOS Keychain, never in the config file.
 - The config file (`~/Library/Application Support/ha-desktop-control/config.json`) holds no secrets.
 - The "now playing" sensor publishes the title of the playing browser tab to your broker.
