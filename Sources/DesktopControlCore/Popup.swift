@@ -33,6 +33,53 @@ public struct PopupConfig: Codable, Equatable, Sendable {
     }
 }
 
+/// Crop of the camera image, same meaning as `crop` / `crop_aspect_ratio` of the Home Assistant
+/// integration advanced_snapshot: `[x, y, width, height]` in pixels of the original image.
+/// With an aspect ratio the height is calculated from the width and the given height is ignored.
+public struct ImageCrop: Equatable, Sendable {
+    public var x: Int, y: Int, width: Int
+    public var height: Int?
+    public var aspect: (Int, Int)?
+
+    public init(x: Int, y: Int, width: Int, height: Int? = nil, aspect: (Int, Int)? = nil) {
+        self.x = x; self.y = y; self.width = width; self.height = height; self.aspect = aspect
+    }
+
+    public static func == (a: ImageCrop, b: ImageCrop) -> Bool {
+        a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height
+            && a.aspect?.0 == b.aspect?.0 && a.aspect?.1 == b.aspect?.1
+    }
+
+    /// nil if the values are unusable, so the caller shows the whole image instead.
+    public static func parse(crop: Any?, aspect: Any?) -> ImageCrop? {
+        guard let list = crop as? [Any], list.count == 3 || list.count == 4 else { return nil }
+        let numbers = list.compactMap { item -> Int? in
+            guard let number = item as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+            return Int(exactly: number.doubleValue.rounded())
+        }
+        guard numbers.count == list.count, numbers[0] >= 0, numbers[1] >= 0, numbers[2] > 0 else { return nil }
+        var ratio: (Int, Int)?
+        if let text = aspect as? String {
+            let parts = text.split(separator: ":")
+            guard text.range(of: #"^\d{1,4}:\d{1,4}$"#, options: .regularExpression) != nil,
+                  let w = Int(parts[0]), let h = Int(parts[1]), w > 0, h > 0 else { return nil }
+            ratio = (w, h)
+        } else if aspect != nil {
+            return nil
+        }
+        return ImageCrop(x: numbers[0], y: numbers[1], width: numbers[2],
+                         height: numbers.count == 4 ? numbers[3] : nil, aspect: ratio)
+    }
+
+    /// The pixel rectangle to cut out of an image of the given size; nil if it does not fit.
+    public func rect(imageWidth: Int, imageHeight: Int) -> (x: Int, y: Int, width: Int, height: Int)? {
+        let h: Int
+        if let aspect { h = width * aspect.1 / aspect.0 } else if let height { h = height } else { return nil }
+        guard h > 0, x + width <= imageWidth, y + h <= imageHeight else { return nil }
+        return (x, y, width, h)
+    }
+}
+
 /// A popup request sent by Home Assistant to `<base>/popup`.
 ///
 /// ```json
@@ -72,6 +119,8 @@ public struct PopupRequest: Equatable, Sendable {
     /// Stays until it is closed or an action button is clicked.
     public var sticky: Bool
     public var actions: [Action]
+    /// Shows only this part of the image in the popup (the large view can show everything).
+    public var crop: ImageCrop?
 
     public static let maxActions = 3
 
@@ -80,7 +129,7 @@ public struct PopupRequest: Equatable, Sendable {
 
     public init(title: String = "", image: String? = nil, duration: Double? = nil, sound: Sound = .setting,
                 pause: Bool? = nil, id: String? = nil, level: Level = .info, url: String? = nil,
-                sticky: Bool = false, actions: [Action] = []) {
+                sticky: Bool = false, actions: [Action] = [], crop: ImageCrop? = nil) {
         self.title = title
         self.image = image
         self.duration = duration
@@ -91,6 +140,7 @@ public struct PopupRequest: Equatable, Sendable {
         self.url = url
         self.sticky = sticky
         self.actions = actions
+        self.crop = crop
     }
 
     /// Returns nil for anything that is not a JSON object. An empty payload is a plain popup.
@@ -118,6 +168,7 @@ public struct PopupRequest: Equatable, Sendable {
         if let level = object["level"] as? String, let parsed = Level(rawValue: level) { request.level = parsed }
         if let url = object["url"] as? String, !url.isEmpty { request.url = url }
         if let sticky = object["sticky"] as? Bool { request.sticky = sticky }
+        request.crop = ImageCrop.parse(crop: object["crop"], aspect: object["crop_aspect_ratio"])
         if let list = object["actions"] as? [[String: Any]] {
             request.actions = list.compactMap { entry in
                 guard let id = entry["id"] as? String, let label = entry["label"] as? String,

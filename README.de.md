@@ -238,12 +238,16 @@ Alle Felder sind optional:
 | `image` | Kamerabild-Pfad aus `entity_picture` (nur `/api/camera_proxy/` und `/local/` auf deinem Home-Assistant-Host) |
 | `duration` | Sekunden bis zum Schließen (3–300) |
 | `sticky` | `true`: bleibt, bis es geschlossen oder ein Button geklickt wird |
+| `crop` | `[x, y, Breite, Höhe]` in Pixeln des Originalbilds: das Popup zeigt nur diesen Ausschnitt. Gleiche Bedeutung wie `crop` der Integration `advanced_snapshot`, die Werte lassen sich also übernehmen |
+| `crop_aspect_ratio` | z. B. `"4:3"`: die Höhe wird aus der Breite berechnet, die angegebene Höhe wird ignoriert (wie bei `advanced_snapshot`) |
 | `sound` | `true` (eingestellter Ton), `false` (still) oder der Name eines macOS-Systemtons wie `Ping` |
 | `pause` | Überschreibt die App-Einstellung zum Pausieren von Videos |
 | `level` | `info` (Standard), `warning` oder `critical`; bestimmt Farbe und Symbol, kritische Popups ignorieren „Nicht stören“ |
 | `id` | Ein neues Popup mit gleicher `id` ersetzt das offene. Bis zu drei Popups werden gestapelt |
 | `url` | Fügt einen Button *Live-Ansicht öffnen* hinzu; es werden nur Adressen auf deinem Home-Assistant-Host geöffnet |
 | `actions` | Bis zu drei Buttons `[{"id": "ignore", "label": "Ignorieren"}]`. Ein Klick wird an `…/action` als `{"id": "<Popup-ID>", "action": "ignore"}` veröffentlicht |
+
+Ein Doppelklick auf das Kamerabild öffnet es in einem großen Fenster (Esc schließt es). Hat das Popup einen Ausschnitt, schaltet ein Umschalter dort zwischen ganzem Bild und Ausschnitt um. Der Countdown wartet, solange die große Ansicht offen ist. Unbrauchbare Crop-Werte werden ignoriert, dann erscheint das ganze Bild.
 
 Das Kamera-Token im Bildlink wechselt alle paar Minuten, bei sehr langen Popups kann das Bild deshalb irgendwann nicht mehr aktualisiert werden. Mit *„Nicht stören“ beachten* (standardmäßig aus) werden Popups übersprungen, solange ein Fokus aktiv ist; macOS fragt einmalig nach der Freigabe.
 

@@ -91,3 +91,28 @@ final class PopupTests: XCTestCase {
         XCTAssertFalse(yaml.contains("bad: 1"))
     }
 }
+
+final class ImageCropTests: XCTestCase {
+    func testParsesLikeAdvancedSnapshot() {
+        let r = PopupRequest.parse(#"{"crop":[200,0,1000,700],"crop_aspect_ratio":"4:3"}"#)
+        XCTAssertEqual(r?.crop?.rect(imageWidth: 2560, imageHeight: 1440).map { [$0.x, $0.y, $0.width, $0.height] }, [200, 0, 1000, 750])
+        let plain = PopupRequest.parse(#"{"crop":[10,20,300,200]}"#)
+        XCTAssertEqual(plain?.crop?.rect(imageWidth: 640, imageHeight: 480).map { [$0.x, $0.y, $0.width, $0.height] }, [10, 20, 300, 200])
+    }
+
+    func testRejectsBadValues() {
+        for payload in [#"{"crop":[1,2]}"#, #"{"crop":[-1,0,10,10]}"#, #"{"crop":[0,0,0,10]}"#,
+                        #"{"crop":[true,0,10,10]}"#, #"{"crop":"1,2,3"}"#,
+                        #"{"crop":[0,0,10],"crop_aspect_ratio":"x"}"#, #"{"crop":[0,0,10],"crop_aspect_ratio":"0:3"}"#] {
+            XCTAssertNil(PopupRequest.parse(payload)?.crop, payload)
+        }
+        XCTAssertNil(PopupRequest.parse(#"{"title":"x"}"#)?.crop)
+    }
+
+    func testRectNeedsToFitImage() {
+        let crop = ImageCrop(x: 200, y: 0, width: 1000, aspect: (4, 3))
+        XCTAssertNil(crop.rect(imageWidth: 1000, imageHeight: 1440))
+        XCTAssertNil(crop.rect(imageWidth: 2560, imageHeight: 700))
+        XCTAssertNil(ImageCrop(x: 0, y: 0, width: 10).rect(imageWidth: 100, imageHeight: 100)) // no height, no ratio
+    }
+}

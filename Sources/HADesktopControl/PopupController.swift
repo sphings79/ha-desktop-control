@@ -14,6 +14,10 @@ struct PopupSpec {
     var openURL: URL?
     var openLabel: String
     var pausesMedia: Bool
+    var crop: ImageCrop?
+    var enlargeHint = "Double-click to enlarge"
+    var wholeLabel = "Whole image"
+    var cropLabel = "Crop"
 }
 
 @MainActor
@@ -22,9 +26,33 @@ final class PopupItem: ObservableObject, Identifiable {
     nonisolated var id: UUID { uid }
     let spec: PopupSpec
     @Published var image: NSImage?
+    /// The part of `image` shown in the card (the whole image if there is no usable crop).
+    @Published var cardImage: NSImage?
+    /// True if `cardImage` is a real crop, so the large view can offer to switch.
+    @Published var isCropped = false
     @Published var imageFailed = false
     @Published var remaining: Int?
+    /// The large view is open: the countdown waits.
+    @Published var viewerOpen = false
     fileprivate var tasks: [Task<Void, Never>] = []
+
+    func setImage(_ new: NSImage) {
+        image = new
+        if let crop = spec.crop, let cut = Self.cut(new, crop) {
+            cardImage = cut
+            isCropped = true
+        } else {
+            cardImage = new
+            isCropped = false
+        }
+    }
+
+    private static func cut(_ image: NSImage, _ crop: ImageCrop) -> NSImage? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let r = crop.rect(imageWidth: cg.width, imageHeight: cg.height),
+              let part = cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)) else { return nil }
+        return NSImage(cgImage: part, size: NSSize(width: r.width, height: r.height))
+    }
 
     init(spec: PopupSpec) {
         self.spec = spec
@@ -41,6 +69,7 @@ final class PopupController: ObservableObject {
     @Published private(set) var items: [PopupItem] = []
     private var panel: NSPanel?
     private var watcher: AnyCancellable?
+    private var viewers: [UUID: NSWindow] = [:]
 
     var onDismiss: ((PopupItem) -> Void)?
     var onAction: ((PopupItem, String) -> Void)?
@@ -67,6 +96,7 @@ final class PopupController: ObservableObject {
                 while let item, !Task.isCancelled, let left = item.remaining, left > 0 {
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     guard !Task.isCancelled else { return }
+                    if item.viewerOpen { continue }
                     item.remaining = left - 1
                 }
                 if let self, let item, !Task.isCancelled { self.dismiss(item) }
@@ -78,7 +108,7 @@ final class PopupController: ObservableObject {
                     let image = await Self.fetch(url)
                     guard let item, !Task.isCancelled else { return }
                     if let image {
-                        item.image = image
+                        item.setImage(image)
                         item.imageFailed = false
                     } else if item.image == nil {
                         item.imageFailed = true
@@ -96,6 +126,34 @@ final class PopupController: ObservableObject {
         onDismiss?(item)
     }
 
+    /// Large view of the camera image in its own window; the countdown waits while it is open.
+    func openViewer(_ item: PopupItem) {
+        guard item.spec.imageURL != nil else { return }
+        if let window = viewers[item.uid] {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = ViewerWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+        window.title = item.spec.title.isEmpty ? "Home Assistant" : item.spec.title
+        window.isReleasedWhenClosed = false
+        window.level = .floating
+        window.minSize = NSSize(width: 400, height: 300)
+        window.contentView = NSHostingView(rootView: PopupViewer(item: item))
+        window.center()
+        window.onClose = { [weak self, weak item] in
+            guard let item else { return }
+            item.viewerOpen = false
+            self?.viewers[item.uid] = nil
+        }
+        viewers[item.uid] = window
+        item.viewerOpen = true
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
     func click(_ item: PopupItem, action: String) {
         onAction?(item, action)
         dismiss(item)
@@ -106,6 +164,7 @@ final class PopupController: ObservableObject {
     private func remove(_ item: PopupItem) {
         item.tasks.forEach { $0.cancel() }
         item.tasks = []
+        viewers[item.uid]?.close()
         items.removeAll { $0.uid == item.uid }
         if items.isEmpty { panel?.orderOut(nil) } else { layout() }
     }
@@ -208,7 +267,7 @@ private struct PopupCard: View {
             if item.spec.imageURL != nil {
                 // Fixed height, so the card does not jump while the image loads.
                 Group {
-                    if let image = item.image {
+                    if let image = item.cardImage {
                         Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
                     } else if item.imageFailed {
                         Image(systemName: "video.slash").font(.largeTitle).foregroundStyle(.secondary)
@@ -219,6 +278,9 @@ private struct PopupCard: View {
                 .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 200)
                 .background(Color.black.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { controller.openViewer(item) }
+                .help(item.spec.enlargeHint)
             }
             if !item.spec.actions.isEmpty || item.spec.openURL != nil {
                 HStack {
@@ -236,5 +298,61 @@ private struct PopupCard: View {
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14).fill(.regularMaterial))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(tint.opacity(0.55), lineWidth: 1.5))
+    }
+}
+
+
+// MARK: - Large view
+
+/// Window that closes on Esc and reports it, so the popup knows the large view is gone.
+private final class ViewerWindow: NSWindow, NSWindowDelegate {
+    var onClose: (() -> Void)?
+
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backing, defer: flag)
+        delegate = self
+    }
+
+    override func cancelOperation(_ sender: Any?) { close() }
+    func windowWillClose(_ notification: Notification) { onClose?() }
+}
+
+private struct PopupViewer: View {
+    @ObservedObject var item: PopupItem
+    /// Starts with the crop, like the popup card.
+    @State private var showCrop = true
+
+    private var current: NSImage? {
+        showCrop && item.isCropped ? item.cardImage : item.image
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let image = current {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
+            } else if item.imageFailed {
+                Image(systemName: "video.slash").font(.largeTitle).foregroundStyle(.secondary)
+            } else {
+                ProgressView()
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if item.isCropped {
+                HStack(spacing: 6) {
+                    choice(item.spec.cropLabel, selected: showCrop) { showCrop = true }
+                    choice(item.spec.wholeLabel, selected: !showCrop) { showCrop = false }
+                }
+                .padding(10)
+            }
+        }
+    }
+
+    private func choice(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).padding(.horizontal, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(selected ? .accentColor : .gray)
     }
 }

@@ -185,7 +185,11 @@ final class AppModel: ObservableObject {
             actions: request.actions,
             openURL: request.openURL(base: config.haBaseURL),
             openLabel: t("Open live view"),
-            pausesMedia: pauses))
+            pausesMedia: pauses,
+            crop: request.crop,
+            enlargeHint: t("Double-click to enlarge"),
+            wholeLabel: t("Whole image"),
+            cropLabel: t("Crop")))
         if let name = request.soundName(config: config.popup) { NSSound(named: NSSound.Name(name))?.play() }
         if pauses, engine.status == .idle, !popupPaused {
             popupPaused = true

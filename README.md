@@ -238,12 +238,16 @@ All fields are optional:
 | `image` | Camera picture path from `entity_picture` (only `/api/camera_proxy/` and `/local/` on your Home Assistant host) |
 | `duration` | Seconds until it closes (3–300) |
 | `sticky` | `true`: stays until it is closed or a button is clicked |
+| `crop` | `[x, y, width, height]` in pixels of the original image: the popup shows only this part. Same meaning as `crop` of the `advanced_snapshot` integration, so you can copy the values |
+| `crop_aspect_ratio` | e.g. `"4:3"`: the height is calculated from the width and the given height is ignored (as in `advanced_snapshot`) |
 | `sound` | `true` (configured sound), `false` (silent) or the name of a macOS system sound such as `Ping` |
 | `pause` | Overrides the app setting for pausing video |
 | `level` | `info` (default), `warning` or `critical`; sets the colour and icon, and critical popups ignore Do Not Disturb |
 | `id` | A new popup with the same `id` replaces the open one. Up to three popups are stacked |
 | `url` | Adds an *Open live view* button; only addresses on your Home Assistant host are opened |
 | `actions` | Up to three buttons `[{"id": "ignore", "label": "Ignore"}]`. A click is published to `…/action` as `{"id": "<popup id>", "action": "ignore"}` |
+
+A double-click on the camera image opens it in a large window (Esc closes it). If the popup has a crop, a switch there toggles between the whole image and the crop. The countdown waits while the large view is open. Unusable crop values are ignored and the whole image is shown.
 
 The camera token in the image link rotates every few minutes, so very long popups may stop updating the picture. With *Respect Do Not Disturb* (off by default) popups are skipped while a Focus is on; macOS asks for permission once.
 

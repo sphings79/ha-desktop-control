@@ -206,6 +206,9 @@ public enum L10n {
         "Add `sticky`, `level` (info, warning, critical), `id`, `url` and up to three `actions` with `id` and `label` to the popup message. The click is sent to this topic.":
             "Ergänze in der Popup-Nachricht `sticky`, `level` (info, warning, critical), `id`, `url` und bis zu drei `actions` mit `id` und `label`. Der Klick wird an dieses Topic gesendet.",
         "Open live view": "Live-Ansicht öffnen",
+        "Double-click to enlarge": "Doppelklick zum Vergrößern",
+        "Whole image": "Ganzes Bild",
+        "Crop": "Ausschnitt",
         "Respect Do Not Disturb": "„Nicht stören“ beachten",
         "Skips popups while a Focus is on, except critical ones. macOS asks for permission once.":
             "Überspringt Popups, solange ein Fokus aktiv ist, außer kritische. macOS fragt einmalig nach der Freigabe.",
