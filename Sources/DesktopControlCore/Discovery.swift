@@ -2,7 +2,8 @@ import Foundation
 
 /// Home Assistant MQTT Discovery messages for the device.
 public enum Discovery {
-    public static func messages(topics: Topics, deviceName: String) -> [MQTTMessage] {
+    /// `audioOutputs` is nil when audio control is unavailable; otherwise the selectable device names.
+    public static func messages(topics: Topics, deviceName: String, audioOutputs: [String]? = nil) -> [MQTTMessage] {
         let device: [String: Any] = [
             "identifiers": ["ha_desktop_control_\(topics.deviceId)"],
             "name": deviceName,
@@ -25,7 +26,7 @@ public enum Discovery {
             return MQTTMessage(topic: topic, payload: json(payload), retain: true)
         }
 
-        return [
+        var result = [
             entity("switch", "enabled", [
                 "name": "Steuerung aktiv",
                 "state_topic": topics.enabledState,
@@ -59,6 +60,43 @@ public enum Discovery {
                 "icon": "mdi:restore"
             ])
         ]
+        if let outputs = audioOutputs {
+            result += [
+                entity("select", "audio_output", [
+                    "name": "Ausgabegerät",
+                    "state_topic": topics.audioOutput,
+                    "command_topic": topics.audioSet("output"),
+                    "options": outputs,
+                    "icon": "mdi:speaker"
+                ]),
+                entity("sensor", "audio_output_type", [
+                    "name": "Ausgabetyp",
+                    "state_topic": topics.audioOutputType,
+                    "device_class": "enum",
+                    "options": AudioOutputKind.allCases.map(\.rawValue),
+                    "icon": "mdi:headphones"
+                ]),
+                entity("number", "audio_volume", [
+                    "name": "Lautstärke",
+                    "state_topic": topics.audioVolume,
+                    "command_topic": topics.audioSet("volume"),
+                    "min": 0,
+                    "max": 100,
+                    "step": 1,
+                    "unit_of_measurement": "%",
+                    "icon": "mdi:volume-high"
+                ]),
+                entity("switch", "audio_muted", [
+                    "name": "Stumm",
+                    "state_topic": topics.audioMuted,
+                    "command_topic": topics.audioSet("muted"),
+                    "payload_on": "ON",
+                    "payload_off": "OFF",
+                    "icon": "mdi:volume-off"
+                ])
+            ]
+        }
+        return result
     }
 
     static func json(_ object: [String: Any]) -> String {

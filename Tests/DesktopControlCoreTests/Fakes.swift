@@ -109,3 +109,21 @@ func waitUntil(timeout: TimeInterval = 2, _ condition: @MainActor () -> Bool) as
     }
     return condition()
 }
+
+final class FakeAudio: AudioControlling {
+    var onChange: (() -> Void)?
+    var current = AudioOutputState(
+        deviceName: "Speakers", kind: .builtinSpeaker, volume: 40, muted: false,
+        available: ["Speakers", "AirPods"])
+
+    @discardableResult func setVolume(_ percent: Int) -> Bool { current.volume = percent; onChange?(); return true }
+    @discardableResult func setMuted(_ muted: Bool) -> Bool { current.muted = muted; onChange?(); return true }
+    @discardableResult func selectOutput(named name: String) -> Bool {
+        guard current.available.contains(name) else { return false }
+        current.deviceName = name
+        current.kind = name == "AirPods" ? .bluetooth : .builtinSpeaker
+        onChange?()
+        return true
+    }
+    func state() -> AudioOutputState { current }
+}

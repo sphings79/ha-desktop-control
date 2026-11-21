@@ -228,6 +228,17 @@ Prefix: `ha-desktop-control/<device_id>`
 | `…/enabled` | app → HA | `ON` / `OFF` | yes |
 | `…/status` | app → HA | `idle` / `paused_by_contact` | yes |
 | `…/now_playing` | app → HA | tab title or `none` | yes |
+| `…/audio/output` | app → HA | name of the current output device | yes |
+| `…/audio/output_type` | app → HA | `builtin_speaker` / `headphones` / `bluetooth` / `usb` / `hdmi` / `airplay` / `other` | yes |
+| `…/audio/volume` | app → HA | `0`–`100`, or `None` if the device has no software volume | yes |
+| `…/audio/muted` | app → HA | `ON` / `OFF` | yes |
+| `…/audio/output/set` | HA → app | device name (switches the output) | no |
+| `…/audio/volume/set` | HA → app | `0`–`100` | no |
+| `…/audio/muted/set` | HA → app | `ON` / `OFF` | no |
+
+### Audio output
+
+The device also exposes the Mac's audio output: a *select* to switch the output device, a *number* for the volume, a *switch* for mute and a sensor with the output type. Use them as conditions in your automations, for example to skip an action while the sound goes to headphones or AirPods. No extra permission is needed. HDMI/DisplayPort monitors usually have no software volume. If a tool such as eqMac is the system output, the type describes that virtual device, not the hardware behind it.
 
 ## Privacy and security
 

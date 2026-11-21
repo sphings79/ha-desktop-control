@@ -32,6 +32,7 @@ final class AppModel: ObservableObject {
     private let store = ConfigStore()
     private let media: BrowserMediaController
     private let windows = AXWindowController()
+    private let audio = CoreAudioOutputController()
     private let engine: RuleEngine
     private var bridge: MQTTBridge?
     private var poller: Task<Void, Never>?
@@ -249,7 +250,7 @@ final class AppModel: ObservableObject {
         let topics = Topics(deviceId: config.deviceId)
         let bridge = MQTTBridge(
             transport: MQTTNIOTransport(), engine: engine, topics: topics,
-            deviceName: Host.current().localizedName ?? "Mac")
+            deviceName: Host.current().localizedName ?? "Mac", audio: audio)
         bridge.onConnectionChange = { [weak self] isUp in
             self?.mqttConnected = isUp
             if isUp { self?.lastError = nil }

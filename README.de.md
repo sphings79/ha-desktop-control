@@ -228,6 +228,17 @@ Präfix: `ha-desktop-control/<device_id>`
 | `…/enabled` | App → HA | `ON` / `OFF` | ja |
 | `…/status` | App → HA | `idle` / `paused_by_contact` | ja |
 | `…/now_playing` | App → HA | Tab-Titel oder `none` | ja |
+| `…/audio/output` | App → HA | Name des aktuellen Ausgabegeräts | ja |
+| `…/audio/output_type` | App → HA | `builtin_speaker` / `headphones` / `bluetooth` / `usb` / `hdmi` / `airplay` / `other` | ja |
+| `…/audio/volume` | App → HA | `0`–`100`, oder `None`, wenn das Gerät keine Software-Lautstärke hat | ja |
+| `…/audio/muted` | App → HA | `ON` / `OFF` | ja |
+| `…/audio/output/set` | HA → App | Gerätename (wechselt die Ausgabe) | nein |
+| `…/audio/volume/set` | HA → App | `0`–`100` | nein |
+| `…/audio/muted/set` | HA → App | `ON` / `OFF` | nein |
+
+### Audioausgabe
+
+Das Gerät stellt auch die Audioausgabe des Macs bereit: ein *Select* zum Wechseln des Ausgabegeräts, ein *Number* für die Lautstärke, einen *Schalter* für Stumm und einen Sensor mit dem Ausgabetyp. Nutze sie als Bedingung in Automationen, z. B. um eine Aktion zu überspringen, solange der Ton über Kopfhörer oder AirPods läuft. Dafür ist keine zusätzliche Berechtigung nötig. HDMI-/DisplayPort-Monitore haben meist keine Software-Lautstärke. Ist ein Tool wie eqMac das System-Ausgabegerät, beschreibt der Typ dieses virtuelle Gerät, nicht die Hardware dahinter.
 
 ## Datenschutz und Sicherheit
 

@@ -34,6 +34,12 @@ public struct Topics: Sendable {
     public var status: String { "\(base)/status" }
     public var nowPlaying: String { "\(base)/now_playing" }
     public var commandFilter: String { "\(base)/cmd/+" }
+    public var audioSetFilter: String { "\(base)/audio/+/set" }
+    public var audioOutput: String { "\(base)/audio/output" }
+    public var audioOutputType: String { "\(base)/audio/output_type" }
+    public var audioVolume: String { "\(base)/audio/volume" }
+    public var audioMuted: String { "\(base)/audio/muted" }
+    public func audioSet(_ name: String) -> String { "\(base)/audio/\(name)/set" }
 
     public func contact(_ source: String) -> String { "\(base)/contact/\(source)" }
     public func command(_ name: String) -> String { "\(base)/cmd/\(name)" }
@@ -43,6 +49,14 @@ public struct Topics: Sendable {
         let prefix = "\(base)/contact/"
         guard topic.hasPrefix(prefix) else { return nil }
         let name = String(topic.dropFirst(prefix.count))
+        return (name.isEmpty || name.contains("/")) ? nil : name
+    }
+
+    /// Returns `volume`, `muted` or `output` if `topic` is `<base>/audio/<name>/set`.
+    public func audioSetName(fromTopic topic: String) -> String? {
+        let prefix = "\(base)/audio/"
+        guard topic.hasPrefix(prefix), topic.hasSuffix("/set") else { return nil }
+        let name = String(topic.dropFirst(prefix.count).dropLast(4))
         return (name.isEmpty || name.contains("/")) ? nil : name
     }
 

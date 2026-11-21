@@ -10,6 +10,16 @@ struct HADesktopControlApp: App {
             print("AXIsProcessTrusted: \(AXWindowController.isTrusted)")
             exit(0)
         }
+        if CommandLine.arguments.contains("--selftest-audio") {
+            let audio = CoreAudioOutputController()
+            let state = audio.state()
+            print(state)
+            // Writing the current value back proves the volume/mute controls are settable.
+            if let volume = state.volume { print("setVolume(\(volume)): \(audio.setVolume(volume))") }
+            if let muted = state.muted { print("setMuted(\(muted)): \(audio.setMuted(muted))") }
+            print("selectOutput(current): \(audio.selectOutput(named: state.deviceName))")
+            exit(0)
+        }
         if CommandLine.arguments.contains("--selftest-media") {
             SelfTest.runMediaAndExit()
         }

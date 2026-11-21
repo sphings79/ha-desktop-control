@@ -89,6 +89,53 @@ final class BridgeTests: XCTestCase {
         await bridge.stop()
     }
 
+    func testAudioStateDiscoveryAndCommands() async throws {
+        let audio = FakeAudio()
+        let engine = RuleEngine(config: AppConfig(resumeDelaySeconds: 0), media: FakeMedia(), windows: FakeWindows())
+        let transport = FakeTransport()
+        let bridge = MQTTBridge(
+            transport: transport, engine: engine, topics: Topics(deviceId: "mini"), deviceName: "Mini", audio: audio)
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        let ready = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/muted") != nil }
+        XCTAssertTrue(ready)
+
+        XCTAssertTrue(transport.subscribed.contains("ha-desktop-control/mini/audio/+/set"))
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/audio/output"), "Speakers")
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/audio/output_type"), "builtin_speaker")
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/audio/volume"), "40")
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/audio/muted"), "OFF")
+        let discovery = transport.published.filter { $0.topic.hasPrefix("homeassistant/") }
+        XCTAssertEqual(discovery.count, 9)
+
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/audio/volume/set", payload: "150"))
+        let clamped = await waitUntil { audio.current.volume == 100 }
+        XCTAssertTrue(clamped)
+        let published = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/volume") == "100" }
+        XCTAssertTrue(published)
+
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/audio/muted/set", payload: "ON"))
+        let muted = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/muted") == "ON" }
+        XCTAssertTrue(muted)
+
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/audio/output/set", payload: "AirPods"))
+        let switched = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/output_type") == "bluetooth" }
+        XCTAssertTrue(switched)
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/audio/output"), "AirPods")
+
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/audio/volume/set", payload: "abc"))
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/audio/output/set", payload: "Nope"))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(audio.current.volume, 100)
+        XCTAssertEqual(audio.current.deviceName, "AirPods")
+
+        // A volume change on a device without software volume is published as unknown.
+        audio.current.volume = nil
+        audio.onChange?()
+        let reset = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/volume") == "None" }
+        XCTAssertTrue(reset)
+        await bridge.stop()
+    }
+
     func testContactMessageTriggersEngineAndStatusIsPublished() async throws {
         let (bridge, transport, engine, media) = makeBridge()
         try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
