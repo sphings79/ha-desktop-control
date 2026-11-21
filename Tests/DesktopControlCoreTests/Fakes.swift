@@ -127,3 +127,30 @@ final class FakeAudio: AudioControlling {
     }
     func state() -> AudioOutputState { current }
 }
+
+final class FakeSensors: SensorReading {
+    var snapshot = SensorSnapshot(idleSeconds: 5)
+    func read(includeActiveApp: Bool) -> SensorSnapshot {
+        var copy = snapshot
+        if !includeActiveApp { copy.activeApp = nil }
+        return copy
+    }
+}
+
+final class FakeMac: MacControlling {
+    var calls: [String] = []
+    @discardableResult func sleepSystem() -> Bool { calls.append("sleep"); return true }
+    @discardableResult func displayOff() -> Bool { calls.append("display_off"); return true }
+    @discardableResult func lockScreen() -> Bool { calls.append("lock"); return true }
+}
+
+final class FakeRunner: CommandRunning {
+    var ran: [String] = []
+    var result = CommandResult(.ok)
+    var delay: UInt64 = 0
+    func run(_ command: CustomCommand) async -> CommandResult {
+        ran.append(command.id)
+        if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
+        return result
+    }
+}

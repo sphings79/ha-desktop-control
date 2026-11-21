@@ -34,6 +34,11 @@ public struct Topics: Sendable {
     public var status: String { "\(base)/status" }
     public var nowPlaying: String { "\(base)/now_playing" }
     public var commandFilter: String { "\(base)/cmd/+" }
+    public var action: String { "\(base)/action" }
+    public var lastCommand: String { "\(base)/last_command" }
+    public var lastCommandAttributes: String { "\(base)/last_command/attributes" }
+    public func sensor(_ name: String) -> String { "\(base)/sensor/\(name)" }
+    public var discoveryConfigFilter: String { "\(Topics.discoveryPrefix)/+/\(deviceId)/+/config" }
     public var popup: String { "\(base)/popup" }
     public var audioSetFilter: String { "\(base)/audio/+/set" }
     public var audioOutput: String { "\(base)/audio/output" }

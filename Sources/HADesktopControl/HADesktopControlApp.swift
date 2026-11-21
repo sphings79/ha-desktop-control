@@ -11,6 +11,11 @@ struct HADesktopControlApp: App {
             print("AXIsProcessTrusted: \(AXWindowController.isTrusted)")
             exit(0)
         }
+        if CommandLine.arguments.contains("--selftest-sensors") {
+            print(SystemSensors().read(includeActiveApp: true))
+            print("lock symbol available: \(MacController.lockSymbol != nil)")
+            exit(0)
+        }
         if CommandLine.arguments.contains("--selftest-audio") {
             let audio = CoreAudioOutputController()
             let state = audio.state()

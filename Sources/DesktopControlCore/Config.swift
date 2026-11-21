@@ -102,6 +102,11 @@ public struct AppConfig: Codable, Equatable, Sendable {
     /// Address of Home Assistant, e.g. `http://homeassistant.local:8123`. Only used to load popup images.
     public var haBaseURL: String
     public var popup: PopupConfig
+    public var sensors: SensorConfig
+    public var macControl: MacControlConfig
+    /// Master switch: custom commands only exist (in HA and when pressed) while this is on.
+    public var commandsEnabled: Bool
+    public var commands: [CustomCommand]
 
     /// Actions for contact sources that have no explicit rule.
     public static let fallbackActions: [SourceAction] = [.pauseMedia]
@@ -118,7 +123,11 @@ public struct AppConfig: Codable, Equatable, Sendable {
         checkForUpdates: Bool = true,
         onboardingCompleted: Bool = false,
         haBaseURL: String = "",
-        popup: PopupConfig = PopupConfig()
+        popup: PopupConfig = PopupConfig(),
+        sensors: SensorConfig = SensorConfig(),
+        macControl: MacControlConfig = MacControlConfig(),
+        commandsEnabled: Bool = false,
+        commands: [CustomCommand] = []
     ) {
         self.broker = broker
         self.deviceId = deviceId
@@ -132,6 +141,10 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.onboardingCompleted = onboardingCompleted
         self.haBaseURL = haBaseURL
         self.popup = popup
+        self.sensors = sensors
+        self.macControl = macControl
+        self.commandsEnabled = commandsEnabled
+        self.commands = commands
     }
 
     public init(from decoder: Decoder) throws {
@@ -149,6 +162,10 @@ public struct AppConfig: Codable, Equatable, Sendable {
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? d.onboardingCompleted
         haBaseURL = try c.decodeIfPresent(String.self, forKey: .haBaseURL) ?? d.haBaseURL
         popup = try c.decodeIfPresent(PopupConfig.self, forKey: .popup) ?? d.popup
+        sensors = try c.decodeIfPresent(SensorConfig.self, forKey: .sensors) ?? d.sensors
+        macControl = try c.decodeIfPresent(MacControlConfig.self, forKey: .macControl) ?? d.macControl
+        commandsEnabled = try c.decodeIfPresent(Bool.self, forKey: .commandsEnabled) ?? d.commandsEnabled
+        commands = try c.decodeIfPresent([CustomCommand].self, forKey: .commands) ?? d.commands
     }
 
     public func actions(forSource source: String) -> [SourceAction] {

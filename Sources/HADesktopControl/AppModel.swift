@@ -34,6 +34,9 @@ final class AppModel: ObservableObject {
     private let windows = AXWindowController()
     private let audio = CoreAudioOutputController()
     private let popup = PopupController()
+    private let sensors = SystemSensors()
+    private let macControl = MacController()
+    private let commandRunner = ProcessCommandRunner()
     private var popupPaused = false
     @Published var copiedPopup = false
     private let engine: RuleEngine
@@ -246,6 +249,7 @@ final class AppModel: ObservableObject {
     private func persist() {
         do { try store.save(config) } catch { lastError = "Saving config failed: \(error)" }
         engine.config = config
+        Task { await bridge?.configChanged() }
     }
 
     func dismissError() { lastError = nil }
@@ -304,7 +308,8 @@ final class AppModel: ObservableObject {
         let topics = Topics(deviceId: config.deviceId)
         let bridge = MQTTBridge(
             transport: MQTTNIOTransport(), engine: engine, topics: topics,
-            deviceName: Host.current().localizedName ?? "Mac", audio: audio)
+            deviceName: Host.current().localizedName ?? "Mac", audio: audio,
+            sensors: sensors, mac: macControl, commands: commandRunner)
         bridge.onPopup = { [weak self] request in self?.showPopup(request) }
         bridge.onConnectionChange = { [weak self] isUp in
             self?.mqttConnected = isUp

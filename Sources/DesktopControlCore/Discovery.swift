@@ -1,9 +1,31 @@
 import Foundation
 
+/// Optional parts of the discovery set; everything is off unless enabled.
+public struct DiscoveryOptions: Equatable, Sendable {
+    public var audioOutputs: [String]?
+    public var sensors = false
+    public var activeApp = false
+    public var macControl = MacControlConfig()
+    public var commands: [CustomCommand] = []
+
+    public init(audioOutputs: [String]? = nil, sensors: Bool = false, activeApp: Bool = false,
+                macControl: MacControlConfig = MacControlConfig(), commands: [CustomCommand] = []) {
+        self.audioOutputs = audioOutputs
+        self.sensors = sensors
+        self.activeApp = activeApp
+        self.macControl = macControl
+        self.commands = commands
+    }
+}
+
 /// Home Assistant MQTT Discovery messages for the device.
 public enum Discovery {
-    /// `audioOutputs` is nil when audio control is unavailable; otherwise the selectable device names.
-    public static func messages(topics: Topics, deviceName: String, audioOutputs: [String]? = nil) -> [MQTTMessage] {
+    public static func messages(topics: Topics, deviceName: String, audioOutputs: [String]?) -> [MQTTMessage] {
+        messages(topics: topics, deviceName: deviceName, options: DiscoveryOptions(audioOutputs: audioOutputs))
+    }
+
+    public static func messages(topics: Topics, deviceName: String, options: DiscoveryOptions) -> [MQTTMessage] {
+        let audioOutputs = options.audioOutputs
         let device: [String: Any] = [
             "identifiers": ["ha_desktop_control_\(topics.deviceId)"],
             "name": deviceName,
@@ -95,6 +117,75 @@ public enum Discovery {
                     "icon": "mdi:volume-off"
                 ])
             ]
+        }
+        if options.sensors {
+            result += [
+                entity("binary_sensor", "camera_in_use", [
+                    "name": "Kamera in Benutzung",
+                    "state_topic": topics.sensor("camera_in_use"),
+                    "payload_on": "ON", "payload_off": "OFF",
+                    "icon": "mdi:webcam"
+                ]),
+                entity("binary_sensor", "microphone_in_use", [
+                    "name": "Mikrofon in Benutzung",
+                    "state_topic": topics.sensor("microphone_in_use"),
+                    "payload_on": "ON", "payload_off": "OFF",
+                    "icon": "mdi:microphone"
+                ]),
+                entity("binary_sensor", "screen_locked", [
+                    "name": "Bildschirm gesperrt",
+                    "state_topic": topics.sensor("screen_locked"),
+                    "payload_on": "ON", "payload_off": "OFF",
+                    "icon": "mdi:monitor-lock"
+                ]),
+                entity("sensor", "idle_seconds", [
+                    "name": "Inaktiv seit",
+                    "state_topic": topics.sensor("idle_seconds"),
+                    "device_class": "duration",
+                    "unit_of_measurement": "s",
+                    "state_class": "measurement",
+                    "icon": "mdi:timer-sand"
+                ])
+            ]
+            if options.activeApp {
+                result.append(entity("sensor", "active_app", [
+                    "name": "Aktive App",
+                    "state_topic": topics.sensor("active_app"),
+                    "icon": "mdi:application"
+                ]))
+            }
+        }
+        let mac = options.macControl
+        if mac.sleep {
+            result.append(entity("button", "mac_sleep", [
+                "name": "Ruhezustand", "command_topic": topics.command("mac_sleep"),
+                "payload_press": "PRESS", "icon": "mdi:sleep"]))
+        }
+        if mac.displayOff {
+            result.append(entity("button", "mac_display_off", [
+                "name": "Display aus", "command_topic": topics.command("mac_display_off"),
+                "payload_press": "PRESS", "icon": "mdi:monitor-off"]))
+        }
+        if mac.lock {
+            result.append(entity("button", "mac_lock", [
+                "name": "Bildschirm sperren", "command_topic": topics.command("mac_lock"),
+                "payload_press": "PRESS", "icon": "mdi:lock"]))
+        }
+        if !options.commands.isEmpty {
+            for command in options.commands {
+                result.append(entity("button", "run_\(command.id)", [
+                    "name": command.name,
+                    "command_topic": topics.command("run_\(command.id)"),
+                    "payload_press": "PRESS",
+                    "icon": "mdi:console"
+                ]))
+            }
+            result.append(entity("sensor", "last_command", [
+                "name": "Letzter Befehl",
+                "state_topic": topics.lastCommand,
+                "json_attributes_topic": topics.lastCommandAttributes,
+                "icon": "mdi:console-line"
+            ]))
         }
         return result
     }

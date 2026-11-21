@@ -78,7 +78,8 @@ final class BridgeTests: XCTestCase {
             "ha-desktop-control/mini/contact/+",
             "ha-desktop-control/mini/enabled/set",
             "ha-desktop-control/mini/cmd/+",
-            "ha-desktop-control/mini/popup"
+            "ha-desktop-control/mini/popup",
+            "homeassistant/+/mini/+/config"
         ])
         XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/availability"), "online")
         XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/enabled"), "ON")
@@ -153,6 +154,138 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(received[0].duration, 3) // clamped to the minimum
         XCTAssertEqual(received[0].sound, .off)
         await bridge.stop()
+    }
+
+    private func makeFeatureBridge(
+        config: AppConfig, sensors: FakeSensors? = nil, mac: FakeMac? = nil, runner: FakeRunner? = nil
+    ) -> (MQTTBridge, FakeTransport, RuleEngine) {
+        let engine = RuleEngine(config: config, media: FakeMedia(), windows: FakeWindows())
+        let transport = FakeTransport()
+        let bridge = MQTTBridge(
+            transport: transport, engine: engine, topics: Topics(deviceId: "mini"), deviceName: "Mini",
+            sensors: sensors, mac: mac, commands: runner, sensorInterval: 0.02)
+        return (bridge, transport, engine)
+    }
+
+    func testSensorsArePublishedOnChangeAndActiveAppIsOptIn() async throws {
+        let sensors = FakeSensors()
+        sensors.snapshot.activeApp = "Safari"
+        let (bridge, transport, engine) = makeFeatureBridge(config: AppConfig(), sensors: sensors)
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        let ready = await waitUntil { transport.lastPayload("ha-desktop-control/mini/sensor/idle_seconds") != nil }
+        XCTAssertTrue(ready)
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/sensor/camera_in_use"), "OFF")
+        XCTAssertNil(transport.lastPayload("ha-desktop-control/mini/sensor/active_app"))
+        XCTAssertNil(transport.published.first { $0.topic.hasSuffix("/active_app/config") })
+
+        sensors.snapshot.cameraInUse = true
+        let cam = await waitUntil { transport.lastPayload("ha-desktop-control/mini/sensor/camera_in_use") == "ON" }
+        XCTAssertTrue(cam)
+
+        // Slowly growing idle time is not published every tick.
+        sensors.snapshot.idleSeconds = 20
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/sensor/idle_seconds"), "5")
+        sensors.snapshot.idleSeconds = 0 // user became active again
+        let reset = await waitUntil { transport.lastPayload("ha-desktop-control/mini/sensor/idle_seconds") == "0" }
+        XCTAssertTrue(reset)
+
+        engine.config.sensors.activeApp = true
+        await bridge.configChanged()
+        let app = await waitUntil { transport.lastPayload("ha-desktop-control/mini/sensor/active_app") == "Safari" }
+        XCTAssertTrue(app)
+        XCTAssertNotNil(transport.published.first { $0.topic.hasSuffix("/active_app/config") && !$0.payload.isEmpty })
+
+        engine.config.sensors.activeApp = false
+        await bridge.configChanged()
+        let removed = await waitUntil {
+            transport.published.last(where: { $0.topic.hasSuffix("/active_app/config") })?.payload == ""
+        }
+        XCTAssertTrue(removed)
+        await bridge.stop()
+    }
+
+    func testMacControlOnlyRunsEnabledCommands() async throws {
+        let mac = FakeMac()
+        var config = AppConfig()
+        config.macControl = MacControlConfig(sleep: false, displayOff: true, lock: false)
+        let (bridge, transport, _) = makeFeatureBridge(config: config, mac: mac)
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        let ready = await waitUntil { transport.lastPayload("ha-desktop-control/mini/availability") == "online" }
+        XCTAssertTrue(ready)
+        let buttons = transport.published.filter { $0.topic.hasPrefix("homeassistant/button/mini/mac_") }.map(\.topic)
+        XCTAssertEqual(buttons, ["homeassistant/button/mini/mac_display_off/config"])
+
+        for name in ["mac_sleep", "mac_display_off", "mac_lock"] {
+            transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/cmd/\(name)", payload: "PRESS"))
+        }
+        let done = await waitUntil { mac.calls.count == 1 }
+        XCTAssertTrue(done)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(mac.calls, ["display_off"])
+        await bridge.stop()
+    }
+
+    func testCustomCommandsNeedMasterSwitchAndRunOnlyDefinedOnes() async throws {
+        let runner = FakeRunner()
+        var config = AppConfig()
+        config.commands = [CustomCommand(id: "backup", name: "Backup", kind: .shell, command: "echo hi")]
+        let (bridge, transport, engine) = makeFeatureBridge(config: config, runner: runner)
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        let ready = await waitUntil { transport.lastPayload("ha-desktop-control/mini/availability") == "online" }
+        XCTAssertTrue(ready)
+
+        // Master switch off: no entity, and pressing does nothing.
+        XCTAssertNil(transport.published.first { $0.topic.contains("/run_backup/") })
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/cmd/run_backup", payload: "PRESS"))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(runner.ran.isEmpty)
+
+        engine.config.commandsEnabled = true
+        await bridge.configChanged()
+        XCTAssertNotNil(transport.published.first { $0.topic == "homeassistant/button/mini/run_backup/config" && !$0.payload.isEmpty })
+
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/cmd/run_unknown", payload: "PRESS"))
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/cmd/run_backup", payload: "PRESS"))
+        let ok = await waitUntil { transport.lastPayload("ha-desktop-control/mini/last_command") == "ok" }
+        XCTAssertTrue(ok)
+        XCTAssertEqual(runner.ran, ["backup"])
+
+        // Switching the master switch off removes the entity again.
+        engine.config.commandsEnabled = false
+        await bridge.configChanged()
+        let gone = await waitUntil {
+            transport.published.last(where: { $0.topic == "homeassistant/button/mini/run_backup/config" })?.payload == ""
+        }
+        XCTAssertTrue(gone)
+        await bridge.stop()
+    }
+
+    func testStaleRetainedConfigOfOursIsRemovedOnConnect() async throws {
+        let (bridge, transport, _) = makeFeatureBridge(config: AppConfig())
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        let ready = await waitUntil { transport.lastPayload("ha-desktop-control/mini/availability") == "online" }
+        XCTAssertTrue(ready)
+        transport.onMessage?(MQTTMessage(topic: "homeassistant/button/mini/run_old/config", payload: "{}", retain: true))
+        transport.onMessage?(MQTTMessage(topic: "homeassistant/button/other/run_old/config", payload: "{}", retain: true))
+        let cleared = await waitUntil {
+            transport.published.contains { $0.topic == "homeassistant/button/mini/run_old/config" && $0.payload.isEmpty }
+        }
+        XCTAssertTrue(cleared)
+        XCTAssertFalse(transport.published.contains { $0.topic == "homeassistant/button/other/run_old/config" })
+        // Our own current entities are never removed.
+        XCTAssertFalse(transport.published.contains { $0.topic == "homeassistant/switch/mini/enabled/config" && $0.payload.isEmpty })
+        await bridge.stop()
+    }
+
+    func testCustomCommandValidationAndIds() {
+        let a = CustomCommand(id: "x", name: "Öffne Tür", kind: .shell, command: "open -a Safari")
+        XCTAssertTrue(a.isValid)
+        XCTAssertFalse(CustomCommand(id: "Bad Id", name: "n", kind: .shell, command: "c").isValid)
+        XCTAssertFalse(CustomCommand(id: "x", name: " ", kind: .shell, command: "c").isValid)
+        XCTAssertFalse(CustomCommand(id: "x", name: "n", kind: .shortcut, command: "").isValid)
+        XCTAssertEqual(CustomCommand.makeId(name: "Backup", existing: []), "backup")
+        XCTAssertEqual(CustomCommand.makeId(name: "Backup", existing: [CustomCommand(id: "backup", name: "B", kind: .shell, command: "c")]), "backup_2")
     }
 
     func testContactMessageTriggersEngineAndStatusIsPublished() async throws {
