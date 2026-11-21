@@ -8,13 +8,14 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
 
     enum Page: String, CaseIterable, Identifiable {
-        case overview, contacts, apps, mqtt, general
+        case overview, contacts, apps, popup, mqtt, general
         var id: String { rawValue }
         var titleKey: String {
             switch self {
             case .overview: return "Overview"
             case .contacts: return "Triggers"
             case .apps: return "Programs"
+            case .popup: return "Popup"
             case .mqtt: return "MQTT"
             case .general: return "General"
             }
@@ -24,6 +25,7 @@ struct SettingsView: View {
             case .overview: return "gauge.with.dots.needle.67percent"
             case .contacts: return "door.left.hand.open"
             case .apps: return "macwindow.on.rectangle"
+            case .popup: return "bell.badge"
             case .mqtt: return "network"
             case .general: return "gearshape"
             }
@@ -50,6 +52,7 @@ struct SettingsView: View {
                     case .overview: OverviewPage(model: model)
                     case .contacts: ContactsPage(model: model)
                     case .apps: AppsPage(model: model)
+                    case .popup: PopupPage(model: model)
                     case .mqtt: MQTTPage(model: model)
                     case .general: GeneralPage(model: model)
                     }
@@ -449,6 +452,76 @@ private struct AppsPage: View {
             ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
             ?? url.deletingPathExtension().lastPathComponent
         add(bundleId: bundle.bundleIdentifier, name: name)
+    }
+}
+
+// MARK: - Popup
+
+private struct PopupPage: View {
+    @ObservedObject var model: AppModel
+    @State private var trigger = "input_boolean.doorbell"
+    @State private var camera = "camera.front_door"
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Card(title: model.t("Popup"), symbol: "bell.badge") {
+                Toggle(model.t("Show popups"), isOn: $model.config.popup.enabled)
+                HStack {
+                    Text(model.t("Display time: %@ seconds", String(Int(model.config.popup.durationSeconds))))
+                    Slider(value: $model.config.popup.durationSeconds, in: 5...120, step: 5)
+                }
+                HStack {
+                    Text(model.t("Sound"))
+                    Picker("", selection: $model.config.popup.sound) {
+                        Text(model.t("Silent")).tag("")
+                        ForEach(AppModel.systemSounds, id: \.self) { Text($0).tag($0) }
+                    }
+                    .labelsHidden().frame(width: 160)
+                    Button(model.t("Preview")) { model.previewSound(model.config.popup.sound) }
+                        .disabled(model.config.popup.sound.isEmpty)
+                    Spacer()
+                }
+                Toggle(model.t("Pause video while the popup is shown"), isOn: $model.config.popup.pauseMedia)
+                Hint(model.t("Video resumes when the popup closes. Home Assistant can override sound and pause for each popup."))
+                HStack {
+                    Spacer()
+                    Button(model.t("Show test popup")) { model.testPopup() }
+                }
+            }
+
+            Card(title: model.t("Camera image"), symbol: "video") {
+                TextField("http://homeassistant.local:8123", text: $model.config.haBaseURL)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Hint(model.t("Home Assistant address, used only to load the camera image of a popup. The image link comes from your automation with a short-lived token, so no password is stored here. HTTPS needs a valid certificate."))
+            }
+
+            Card(title: model.t("Home Assistant automation: popup with camera image"), symbol: "doc.text") {
+                TextField(model.t("Trigger entity"), text: $trigger)
+                    .textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
+                TextField(model.t("Camera entity"), text: $camera)
+                    .textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
+                ScrollView {
+                    Text(model.popupYAML(trigger: trigger, camera: camera))
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .frame(height: 220)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
+                HStack {
+                    Hint(model.t("Optional fields in the message: duration (seconds), sound (true, false or a system sound name) and pause (true or false)."))
+                    Spacer()
+                    Button {
+                        model.copyPopupYAML(trigger: trigger, camera: camera)
+                    } label: {
+                        Label(model.copiedPopup ? model.t("Copied") : model.t("Copy YAML"),
+                              systemImage: model.copiedPopup ? "checkmark" : "doc.on.doc")
+                    }
+                }
+            }
+        }
     }
 }
 

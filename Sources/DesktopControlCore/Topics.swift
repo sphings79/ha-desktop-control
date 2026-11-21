@@ -34,6 +34,7 @@ public struct Topics: Sendable {
     public var status: String { "\(base)/status" }
     public var nowPlaying: String { "\(base)/now_playing" }
     public var commandFilter: String { "\(base)/cmd/+" }
+    public var popup: String { "\(base)/popup" }
     public var audioSetFilter: String { "\(base)/audio/+/set" }
     public var audioOutput: String { "\(base)/audio/output" }
     public var audioOutputType: String { "\(base)/audio/output_type" }

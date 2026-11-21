@@ -1,4 +1,5 @@
 import AppKit
+import DesktopControlCore
 import SwiftUI
 
 struct HADesktopControlApp: App {
@@ -19,6 +20,19 @@ struct HADesktopControlApp: App {
             if let muted = state.muted { print("setMuted(\(muted)): \(audio.setMuted(muted))") }
             print("selectOutput(current): \(audio.selectOutput(named: state.deviceName))")
             exit(0)
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--selftest-popup"), index + 2 < CommandLine.arguments.count {
+            // `--selftest-popup <HA base URL> <image path>`: shows a popup for 8 s with the real image.
+            let base = CommandLine.arguments[index + 1], path = CommandLine.arguments[index + 2]
+            NSApplication.shared.setActivationPolicy(.accessory)
+            let controller = PopupController()
+            controller.show(title: "Selftest", imageURL: PopupRequest(image: path).imageURL(base: base), seconds: 8)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                let size = controller.state.image?.size
+                print("visible: \(controller.isVisible), image: \(size.map { "\(Int($0.width))x\(Int($0.height))" } ?? "none"), failed: \(controller.state.imageFailed), frame: \(String(describing: NSApp.windows.first?.frame))")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 9) { exit(0) }
+            NSApplication.shared.run()
         }
         if CommandLine.arguments.contains("--selftest-media") {
             SelfTest.runMediaAndExit()

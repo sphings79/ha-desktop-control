@@ -214,6 +214,22 @@ Ersetze die Entität, die Geräte-ID (`mac_mini`) und den Auslösernamen (`buero
 
 Auslöser ohne Regel pausieren nur das Video.
 
+## Popup mit Kamerabild
+
+Zeigt ein kleines schwebendes Fenster oben rechts auf dem Bildschirm, z. B. wenn es klingelt, mit einem Kamera-Schnappschuss, der sich jede Sekunde aktualisiert. Es nimmt keinen Fokus und erscheint auch über Vollbild-Apps. Währenddessen kann das Video pausieren.
+
+1. Öffne *Popup* in den Einstellungen und trage die Adresse deiner Home Assistant ein (z. B. `http://homeassistant.local:8123`). Sie dient nur zum Laden des Bilds. Es wird kein Passwort und kein Token gespeichert: Der Bildlink kommt aus deiner Automation und enthält ein kurzlebiges Kamera-Token.
+2. Kopiere die erzeugte Automation von derselben Seite, trage Auslöser- und Kamera-Entität ein und füge sie in Home Assistant ein.
+3. Mit *Test-Popup anzeigen* prüfst du Fenster und Ton.
+
+Die Automation veröffentlicht (nicht retained) an `ha-desktop-control/<device_id>/popup`:
+
+```json
+{"title": "Klingel", "image": "/api/camera_proxy/camera.front_door?token=…", "duration": 30, "sound": true, "pause": false}
+```
+
+Alle Felder sind optional. `sound` ist `true` (der eingestellte Ton), `false` (still) oder der Name eines macOS-Systemtons wie `Ping`; `pause` überschreibt die App-Einstellung; `duration` in Sekunden (3–300). Die App lädt nur Bilder unter `/api/camera_proxy/` und `/local/` vom eingetragenen Home-Assistant-Host. HTTPS braucht ein gültiges Zertifikat.
+
 ## MQTT-Topics
 
 Präfix: `ha-desktop-control/<device_id>`
@@ -224,6 +240,7 @@ Präfix: `ha-desktop-control/<device_id>`
 | `…/enabled/set` | HA → App | `ON` / `OFF` | nein |
 | `…/cmd/pause_media` | HA → App | `PRESS` | nein |
 | `…/cmd/restore` | HA → App | `PRESS` | nein |
+| `…/popup` | HA → App | JSON, siehe [Popup](#popup-mit-kamerabild) | nein |
 | `…/availability` | App → HA | `online` / `offline` (Last Will) | ja |
 | `…/enabled` | App → HA | `ON` / `OFF` | ja |
 | `…/status` | App → HA | `idle` / `paused_by_contact` | ja |

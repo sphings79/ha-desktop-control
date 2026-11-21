@@ -33,6 +33,9 @@ final class AppModel: ObservableObject {
     private let media: BrowserMediaController
     private let windows = AXWindowController()
     private let audio = CoreAudioOutputController()
+    private let popup = PopupController()
+    private var popupPaused = false
+    @Published var copiedPopup = false
     private let engine: RuleEngine
     private var bridge: MQTTBridge?
     private var poller: Task<Void, Never>?
@@ -154,6 +157,57 @@ final class AppModel: ObservableObject {
         AutomationExample.yaml(deviceId: config.deviceId, source: source, entity: entity)
     }
 
+    // MARK: - Popup
+
+    static var systemSounds: [String] {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: "/System/Library/Sounds")) ?? []
+        return files.filter { $0.hasSuffix(".aiff") }.map { String($0.dropLast(5)) }.sorted()
+    }
+
+    func showPopup(_ request: PopupRequest) {
+        guard config.popup.enabled else { return }
+        popup.onDismiss = { [weak self] in self?.popupClosed() }
+        popup.show(
+            title: request.title,
+            imageURL: request.imageURL(base: config.haBaseURL),
+            seconds: request.displaySeconds(config: config.popup))
+        if let name = request.soundName(config: config.popup) { NSSound(named: NSSound.Name(name))?.play() }
+        if request.shouldPause(config: config.popup), engine.status == .idle, !popupPaused {
+            popupPaused = true
+            Task { await engine.manualPause() }
+        }
+    }
+
+    func testPopup() {
+        showPopup(PopupRequest(title: t("Test popup"), duration: 8, sound: .on))
+    }
+
+    private func popupClosed() {
+        guard popupPaused else { return }
+        popupPaused = false
+        Task {
+            if engine.openSources.isEmpty { await engine.manualRestore() }
+        }
+    }
+
+    func previewSound(_ name: String) {
+        if !name.isEmpty { NSSound(named: NSSound.Name(name))?.play() }
+    }
+
+    func popupYAML(trigger: String, camera: String) -> String {
+        AutomationExample.popupYAML(deviceId: config.deviceId, trigger: trigger, camera: camera, title: t("Doorbell"))
+    }
+
+    func copyPopupYAML(trigger: String, camera: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(popupYAML(trigger: trigger, camera: camera), forType: .string)
+        copiedPopup = true
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            copiedPopup = false
+        }
+    }
+
     func copyAutomationYAML(for source: String, entity: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(automationYAML(for: source, entity: entity), forType: .string)
@@ -251,6 +305,7 @@ final class AppModel: ObservableObject {
         let bridge = MQTTBridge(
             transport: MQTTNIOTransport(), engine: engine, topics: topics,
             deviceName: Host.current().localizedName ?? "Mac", audio: audio)
+        bridge.onPopup = { [weak self] request in self?.showPopup(request) }
         bridge.onConnectionChange = { [weak self] isUp in
             self?.mqttConnected = isUp
             if isUp { self?.lastError = nil }

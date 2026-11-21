@@ -99,6 +99,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var checkForUpdates: Bool
     /// The welcome/setup window was finished once and no longer opens by itself.
     public var onboardingCompleted: Bool
+    /// Address of Home Assistant, e.g. `http://homeassistant.local:8123`. Only used to load popup images.
+    public var haBaseURL: String
+    public var popup: PopupConfig
 
     /// Actions for contact sources that have no explicit rule.
     public static let fallbackActions: [SourceAction] = [.pauseMedia]
@@ -113,7 +116,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
         appearance: AppearanceMode = .system,
         language: AppLanguage = .system,
         checkForUpdates: Bool = true,
-        onboardingCompleted: Bool = false
+        onboardingCompleted: Bool = false,
+        haBaseURL: String = "",
+        popup: PopupConfig = PopupConfig()
     ) {
         self.broker = broker
         self.deviceId = deviceId
@@ -125,6 +130,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.language = language
         self.checkForUpdates = checkForUpdates
         self.onboardingCompleted = onboardingCompleted
+        self.haBaseURL = haBaseURL
+        self.popup = popup
     }
 
     public init(from decoder: Decoder) throws {
@@ -140,6 +147,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? d.language
         checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? d.onboardingCompleted
+        haBaseURL = try c.decodeIfPresent(String.self, forKey: .haBaseURL) ?? d.haBaseURL
+        popup = try c.decodeIfPresent(PopupConfig.self, forKey: .popup) ?? d.popup
     }
 
     public func actions(forSource source: String) -> [SourceAction] {

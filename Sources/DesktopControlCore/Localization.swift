@@ -180,6 +180,27 @@ public enum L10n {
         "Create your first trigger": "Ersten Auslöser anlegen",
         "Add a trigger and copy the generated Home Assistant automation.": "Lege einen Auslöser an und kopiere die erzeugte Home-Assistant-Automation.",
         "Open triggers": "Auslöser öffnen",
-        "Done": "Fertig"
+        "Done": "Fertig",
+        // Popup
+        "Popup": "Popup",
+        "Show popups": "Popups anzeigen",
+        "Display time: %@ seconds": "Anzeigedauer: %@ Sekunden",
+        "Sound": "Ton",
+        "Silent": "Stumm",
+        "Preview": "Anhören",
+        "Pause video while the popup is shown": "Video pausieren, solange das Popup sichtbar ist",
+        "Video resumes when the popup closes. Home Assistant can override sound and pause for each popup.":
+            "Das Video läuft weiter, wenn das Popup schließt. Home Assistant kann Ton und Pause pro Popup überschreiben.",
+        "Show test popup": "Test-Popup anzeigen",
+        "Test popup": "Test-Popup",
+        "Doorbell": "Klingel",
+        "Camera image": "Kamerabild",
+        "Home Assistant address, used only to load the camera image of a popup. The image link comes from your automation with a short-lived token, so no password is stored here. HTTPS needs a valid certificate.":
+            "Adresse von Home Assistant, nur zum Laden des Kamerabilds eines Popups. Der Bildlink kommt mit einem kurzlebigen Token aus deiner Automation, hier wird also kein Passwort gespeichert. HTTPS braucht ein gültiges Zertifikat.",
+        "Home Assistant automation: popup with camera image": "Home-Assistant-Automation: Popup mit Kamerabild",
+        "Trigger entity": "Auslösende Entität",
+        "Camera entity": "Kamera-Entität",
+        "Optional fields in the message: duration (seconds), sound (true, false or a system sound name) and pause (true or false).":
+            "Optionale Felder in der Nachricht: duration (Sekunden), sound (true, false oder Name eines Systemtons) und pause (true oder false)."
     ]
 }

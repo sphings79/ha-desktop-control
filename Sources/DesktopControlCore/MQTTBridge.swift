@@ -18,6 +18,8 @@ public final class MQTTBridge {
     private var lastAudio: AudioOutputState?
 
     public var onConnectionChange: ((Bool) -> Void)?
+    /// Called for every valid popup request from Home Assistant.
+    public var onPopup: ((PopupRequest) -> Void)?
 
     public init(transport: MQTTTransport, engine: RuleEngine, topics: Topics, deviceName: String, audio: AudioControlling? = nil) {
         self.audio = audio
@@ -92,7 +94,7 @@ public final class MQTTBridge {
         onConnectionChange?(isUp)
         guard isUp else { return }
         do {
-            var filters = [topics.contactFilter, topics.enabledSet, topics.commandFilter]
+            var filters = [topics.contactFilter, topics.enabledSet, topics.commandFilter, topics.popup]
             if audio != nil { filters.append(topics.audioSetFilter) }
             try await transport.subscribe(filters)
             try await transport.publish(MQTTMessage(topic: topics.availability, payload: "online", retain: true))
@@ -175,6 +177,9 @@ public final class MQTTBridge {
             case "OFF": await engine.setEnabled(false)
             default: break
             }
+        } else if message.topic == topics.popup {
+            // A retained popup would replay on every reconnect, so only live messages count.
+            if !message.retain, let request = PopupRequest.parse(message.payload) { onPopup?(request) }
         } else if let name = topics.audioSetName(fromTopic: message.topic) {
             await routeAudio(name, message.payload)
         } else if let command = topics.commandName(fromTopic: message.topic) {

@@ -214,6 +214,22 @@ Replace the entity, the device ID (`mac_mini`) and the trigger name (`office_doo
 
 Triggers without a rule fall back to *pause video* only.
 
+## Popup with camera image
+
+Show a small floating window in the top-right corner of your screen, for example when the doorbell rings, with a snapshot of a camera that refreshes every second. It does not take focus and also appears over full-screen apps. Video can pause while it is shown.
+
+1. Open *Popup* in the settings and enter your Home Assistant address (for example `http://homeassistant.local:8123`). It is only used to load the image. No password or token is stored: the image link comes from your automation and carries a short-lived camera token.
+2. Copy the generated automation from the same page, enter your trigger and camera entity, and paste it into Home Assistant.
+3. Press *Show test popup* to check the window and the sound.
+
+The automation publishes (not retained) to `ha-desktop-control/<device_id>/popup`:
+
+```json
+{"title": "Doorbell", "image": "/api/camera_proxy/camera.front_door?token=…", "duration": 30, "sound": true, "pause": false}
+```
+
+All fields are optional. `sound` is `true` (the configured sound), `false` (silent) or the name of a macOS system sound such as `Ping`; `pause` overrides the app setting; `duration` is in seconds (3–300). The app only loads images from `/api/camera_proxy/` and `/local/` on the configured Home Assistant host. HTTPS needs a valid certificate.
+
 ## MQTT topics
 
 Prefix: `ha-desktop-control/<device_id>`
@@ -224,6 +240,7 @@ Prefix: `ha-desktop-control/<device_id>`
 | `…/enabled/set` | HA → app | `ON` / `OFF` | no |
 | `…/cmd/pause_media` | HA → app | `PRESS` | no |
 | `…/cmd/restore` | HA → app | `PRESS` | no |
+| `…/popup` | HA → app | JSON, see [Popup](#popup-with-camera-image) | no |
 | `…/availability` | app → HA | `online` / `offline` (last will) | yes |
 | `…/enabled` | app → HA | `ON` / `OFF` | yes |
 | `…/status` | app → HA | `idle` / `paused_by_contact` | yes |

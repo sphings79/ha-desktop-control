@@ -77,7 +77,8 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(Set(transport.subscribed), [
             "ha-desktop-control/mini/contact/+",
             "ha-desktop-control/mini/enabled/set",
-            "ha-desktop-control/mini/cmd/+"
+            "ha-desktop-control/mini/cmd/+",
+            "ha-desktop-control/mini/popup"
         ])
         XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/availability"), "online")
         XCTAssertEqual(transport.lastPayload("ha-desktop-control/mini/enabled"), "ON")
@@ -133,6 +134,24 @@ final class BridgeTests: XCTestCase {
         audio.onChange?()
         let reset = await waitUntil { transport.lastPayload("ha-desktop-control/mini/audio/volume") == "None" }
         XCTAssertTrue(reset)
+        await bridge.stop()
+    }
+
+    func testPopupMessagesAreRoutedAndRetainedOnesIgnored() async throws {
+        let (bridge, transport, _, _) = makeBridge()
+        var received: [PopupRequest] = []
+        bridge.onPopup = { received.append($0) }
+        try await bridge.start(broker: BrokerConfig(host: "h"), password: nil)
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/popup", payload: #"{"title":"Door"}"#, retain: true))
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/popup", payload: "not json"))
+        transport.onMessage?(MQTTMessage(topic: "ha-desktop-control/mini/popup", payload: #"{"title":"Door","duration":1,"sound":false}"#))
+        let ok = await waitUntil { received.count == 1 }
+        XCTAssertTrue(ok)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(received.count, 1)
+        XCTAssertEqual(received[0].title, "Door")
+        XCTAssertEqual(received[0].duration, 3) // clamped to the minimum
+        XCTAssertEqual(received[0].sound, .off)
         await bridge.stop()
     }
 
