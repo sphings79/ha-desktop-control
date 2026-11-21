@@ -19,13 +19,32 @@ struct HADesktopControlApp: App {
         MenuBarExtra {
             MenuView(model: model)
         } label: {
-            Image(systemName: model.snapshot.status == .pausedByContact
-                  ? "pause.circle.fill" : (model.snapshot.enabled ? "window.vertical.open" : "slash.circle"))
+            MenuBarIcon(model: model)
         }
+        Window("HA Desktop Control", id: "welcome") {
+            WelcomeView(model: model)
+        }
+        .windowResizability(.contentSize)
         Window("HA Desktop Control", id: "settings") {
             SettingsView(model: model)
         }
         .windowResizability(.contentSize)
+    }
+}
+
+/// The menu bar icon; it also opens the setup guide once, on the first launch.
+struct MenuBarIcon: View {
+    @ObservedObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: model.snapshot.status == .pausedByContact
+              ? "pause.circle.fill" : (model.snapshot.enabled ? "window.vertical.open" : "slash.circle"))
+            .onAppear {
+                guard !model.config.onboardingCompleted else { return }
+                openWindow(id: "welcome")
+                NSApp.activate(ignoringOtherApps: true)
+            }
     }
 }
 
@@ -57,6 +76,10 @@ struct MenuView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         .keyboardShortcut(",")
+        Button(model.t("Setup guide …")) {
+            openWindow(id: "welcome")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         Text(model.t("Version %@", AppModel.currentVersion))
         Button(model.t("Quit")) { NSApp.terminate(nil) }
             .keyboardShortcut("q")

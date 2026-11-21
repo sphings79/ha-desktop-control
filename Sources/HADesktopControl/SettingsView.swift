@@ -61,6 +61,9 @@ struct SettingsView: View {
         }
         .frame(minWidth: 760, minHeight: 540)
         .onAppear { model.refreshPermissions() }
+        .onChange(of: model.requestedPage) { _, requested in
+            if let requested { page = requested; model.requestedPage = nil }
+        }
     }
 }
 

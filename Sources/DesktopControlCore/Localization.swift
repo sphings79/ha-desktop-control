@@ -150,6 +150,36 @@ public enum L10n {
         "Automatically check for updates": "Automatisch nach Updates suchen",
         "Checks GitHub once a day for a new release. GitHub sees your IP address and the app version.":
             "Fragt einmal täglich bei GitHub nach einem neuen Release. GitHub sieht dabei deine IP-Adresse und die App-Version.",
-        "Could not check for updates.": "Update-Prüfung fehlgeschlagen."
+        "Could not check for updates.": "Update-Prüfung fehlgeschlagen.",
+        // Setup guide
+        "Welcome to HA Desktop Control": "Willkommen bei HA Desktop Control",
+        "A few permissions are needed so your Mac can react to Home Assistant. This window updates by itself.":
+            "Damit dein Mac auf Home Assistant reagieren kann, braucht die App ein paar Freigaben. Dieses Fenster aktualisiert sich selbst.",
+        "Setup guide …": "Einrichtungsassistent …",
+        "Connect to your MQTT broker": "Mit deinem MQTT-Broker verbinden",
+        "Not connected yet": "Noch nicht verbunden",
+        "Open MQTT settings": "MQTT-Einstellungen öffnen",
+        "Accessibility access": "Zugriff über Bedienungshilfen",
+        "Lets the app leave full screen and minimize windows.": "Damit die App den Vollbildmodus verlassen und Fenster minimieren kann.",
+        "Allowed": "Erlaubt",
+        "Not allowed yet": "Noch nicht erlaubt",
+        "Open Accessibility settings": "Bedienungshilfen-Einstellungen öffnen",
+        "Browser control": "Browser-Steuerung",
+        "Start your browser, then enable View › Developer › “Allow JavaScript from Apple Events”. macOS asks for Automation access the first time media is paused.":
+            "Starte deinen Browser und schalte Ansicht › Entwickler › „JavaScript von Apple Events erlauben“ ein. macOS fragt beim ersten Pausieren nach dem Automation-Zugriff.",
+        "Automation": "Automation",
+        "JavaScript from Apple Events": "JavaScript von Apple Events",
+        "allowed": "erlaubt",
+        "not allowed yet": "noch nicht erlaubt",
+        "on": "an",
+        "off": "aus",
+        "not running": "läuft nicht",
+        "open a window to check": "Fenster öffnen zum Prüfen",
+        "No browser is running. Start one to check its permissions.": "Kein Browser läuft. Starte einen, um seine Freigaben zu prüfen.",
+        "Open Automation settings": "Automation-Einstellungen öffnen",
+        "Create your first trigger": "Ersten Auslöser anlegen",
+        "Add a trigger and copy the generated Home Assistant automation.": "Lege einen Auslöser an und kopiere die erzeugte Home-Assistant-Automation.",
+        "Open triggers": "Auslöser öffnen",
+        "Done": "Fertig"
     ]
 }

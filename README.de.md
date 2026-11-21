@@ -131,7 +131,7 @@ Ein kostenloses *Apple Development*-Zertifikat aus Xcode reicht (`security find-
 
 ## Einrichtung
 
-1. App starten. In der Menüleiste erscheint ein Fenster-Symbol.
+1. App starten. In der Menüleiste erscheint ein Fenster-Symbol, und beim ersten Start öffnet sich der **Einrichtungsassistent** (Menü › *Einrichtungsassistent …* öffnet ihn erneut). Er listet die folgenden Freigaben mit Live-Status und einem Button, der die passende Systemeinstellung öffnet.
 2. **Einstellungen › MQTT:** Host, Port, Benutzer und Passwort eintragen, eine **Geräte-ID** wählen (zum Beispiel `mac_mini`) und auf *Speichern & verbinden* klicken.
 3. **Einstellungen › Übersicht:** Die Berechtigung **Bedienungshilfen** erteilen. Sie wird gebraucht, um den Vollbildmodus zu verlassen und Fenster zu minimieren.
 4. Im Browser **JavaScript von Apple Events erlauben** einschalten. macOS fragt beim ersten Pausieren nach der **Automation**-Freigabe.
@@ -186,6 +186,13 @@ actions:
 ```
 
 Ersetze die Entität, die Geräte-ID (`mac_mini`) und den Auslösernamen (`buerotuer`). Für einen Bewegungs- oder Anwesenheitsmelder nimmst du dessen Entität, sein Zustand `on` wird zu `open`. Weitere Beispiele liegen in [`ha/`](ha/).
+
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-welcome-de-dark.png">
+  <img src="docs/screenshot-welcome-de.png" alt="Einrichtungsassistent mit Live-Status für MQTT-Verbindung, Bedienungshilfen, Browser-Freigaben und den ersten Auslöser" width="480">
+</picture>
+</div>
 
 ## Einstellungen im Überblick
 

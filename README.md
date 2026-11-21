@@ -131,7 +131,7 @@ A free *Apple Development* certificate from Xcode is enough (`security find-iden
 
 ## Setup
 
-1. Start the app. A window icon appears in the menu bar.
+1. Start the app. A window icon appears in the menu bar and the **setup guide** opens on the first launch (menu › *Setup guide …* opens it again). It lists the permissions below with a live status and a button that opens the right System Settings pane.
 2. **Settings › MQTT:** enter host, port, user and password, choose a **device ID** (for example `mac_mini`) and click *Save & connect*.
 3. **Settings › Overview:** grant the **Accessibility** permission. It is needed to leave full screen and to minimize windows.
 4. In your browser, enable **Allow JavaScript from Apple Events**. macOS asks for the **Automation** permission the first time media is paused.
@@ -186,6 +186,13 @@ actions:
 ```
 
 Replace the entity, the device ID (`mac_mini`) and the trigger name (`office_door`). For a motion or presence sensor, use that entity instead; its `on` state becomes `open`. More examples are in [`ha/`](ha/).
+
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-welcome-dark.png">
+  <img src="docs/screenshot-welcome.png" alt="Setup guide window with live status for the MQTT connection, Accessibility access, browser permissions and the first trigger" width="480">
+</picture>
+</div>
 
 ## Settings reference
 

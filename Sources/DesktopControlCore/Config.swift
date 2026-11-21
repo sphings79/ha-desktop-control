@@ -97,6 +97,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var language: AppLanguage
     /// Ask GitHub once a day whether a newer release exists.
     public var checkForUpdates: Bool
+    /// The welcome/setup window was finished once and no longer opens by itself.
+    public var onboardingCompleted: Bool
 
     /// Actions for contact sources that have no explicit rule.
     public static let fallbackActions: [SourceAction] = [.pauseMedia]
@@ -110,7 +112,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         apps: [AppRule] = [],
         appearance: AppearanceMode = .system,
         language: AppLanguage = .system,
-        checkForUpdates: Bool = true
+        checkForUpdates: Bool = true,
+        onboardingCompleted: Bool = false
     ) {
         self.broker = broker
         self.deviceId = deviceId
@@ -121,6 +124,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         self.appearance = appearance
         self.language = language
         self.checkForUpdates = checkForUpdates
+        self.onboardingCompleted = onboardingCompleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -135,6 +139,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? d.appearance
         language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? d.language
         checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
+        onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? d.onboardingCompleted
     }
 
     public func actions(forSource source: String) -> [SourceAction] {

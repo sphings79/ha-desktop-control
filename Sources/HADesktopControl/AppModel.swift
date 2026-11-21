@@ -18,6 +18,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var copiedSource: String?
     /// Screenshot mode only: open the YAML generator of the first trigger.
     private(set) var demoExpandYAML = false
+    @Published private(set) var browserChecks: [BrowserCheck] = []
+    /// Set by the setup window; the settings window jumps to this page.
+    @Published var requestedPage: SettingsView.Page?
 
     enum UpdateState: Equatable {
         case idle, checking, upToDate(Date), failed
@@ -82,6 +85,22 @@ final class AppModel: ObservableObject {
     /// Translated text; views call this so they refresh when the language changes.
     func t(_ key: String, _ args: String...) -> String {
         L10n.tr(key, args, language: language)
+    }
+
+    // MARK: - Setup guide
+
+    func refreshOnboarding() async {
+        guard !demoExpandYAML else { return } // screenshot mode keeps its sample data
+        refreshPermissions()
+        var checks: [BrowserCheck] = []
+        let runner = AppleScriptRunner()
+        for browser in BrowserKind.allCases where NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) != nil {
+            let automation = PermissionChecker.automation(for: browser)
+            var javascript = BrowserCheck.JavaScript.unknown
+            if automation == .granted { javascript = await PermissionChecker.javascript(for: browser, runner: runner) }
+            checks.append(BrowserCheck(browser: browser, automation: automation, javascript: javascript))
+        }
+        if checks != browserChecks { browserChecks = checks }
     }
 
     // MARK: - Updates
@@ -163,6 +182,10 @@ final class AppModel: ObservableObject {
         mqttConnected = true
         accessibilityTrusted = true
         demoExpandYAML = true
+        browserChecks = [
+            BrowserCheck(browser: .brave, automation: .granted, javascript: .on),
+            BrowserCheck(browser: .vivaldi, automation: .notAsked, javascript: .unknown)
+        ]
     }
 
     private func persist() {
